@@ -149,6 +149,13 @@ uv run ruff check .
 uv run pytest
 ```
 
+Three standalone fake-device interaction studies live in
+[`demos/busybar_ui`](demos/busybar_ui): a multi-device grid, a
+brightness/color/temperature editor, and a large-icon focus carousel. They talk
+directly to BUSY Bar and never use the Home Assistant API, which makes them a
+fast way to compare pixel layouts and input mappings before promoting one into
+the integration.
+
 For visual testing, run the community
 [BUSY Bar emulator](https://github.com/maxswinkels/busybar-emulator) and point
 a development client at `127.0.0.1:8080`. The emulator validates the real
