@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4
+
+- Handle the physical firmware's empty Select/OK event so adjustment mode can
+  be entered reliably.
+
 ## 0.1.3
 
 - Accept the button-event shape emitted by physical BUSY firmware, where a
