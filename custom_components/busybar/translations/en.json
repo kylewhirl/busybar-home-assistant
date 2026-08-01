@@ -1,0 +1,73 @@
+{
+  "title": "BUSY Bar",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to BUSY Bar",
+        "description": "Enter the local address and HTTP API access key shown in BUSY Bar settings.",
+        "data": {
+          "host": "Host or IP address",
+          "access_key": "HTTP API access key"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to the BUSY Bar",
+      "invalid_auth": "The HTTP API access key was rejected",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This BUSY Bar is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "BUSY Bar dashboard",
+        "description": "Choose the Home Assistant accessories shown on the BUSY Bar. Their order here is their order on the dial.",
+        "data": {
+          "entities": "Accessories",
+          "accent_color": "Accent color",
+          "dial_step": "Dial step (%)",
+          "display_priority": "Display priority (95 recommended)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "connected": { "name": "Connected" }
+    },
+    "button": {
+      "next_accessory": { "name": "Next accessory" },
+      "previous_accessory": { "name": "Previous accessory" },
+      "refresh_dashboard": { "name": "Refresh dashboard" }
+    },
+    "number": {
+      "display_brightness": { "name": "Display brightness" }
+    },
+    "sensor": {
+      "battery": { "name": "Battery" },
+      "firmware": { "name": "Firmware" },
+      "navigation": { "name": "Navigation" },
+      "selected_accessory": { "name": "Selected accessory" }
+    },
+    "switch": {
+      "dashboard": { "name": "Dashboard" }
+    }
+  },
+  "services": {
+    "show_message": {
+      "name": "Show message",
+      "description": "Show a temporary message on both BUSY Bar displays."
+    },
+    "clear_display": {
+      "name": "Clear display",
+      "description": "Clear content drawn by this integration."
+    },
+    "refresh_dashboard": {
+      "name": "Refresh dashboard",
+      "description": "Redraw the current Home Assistant screen."
+    }
+  }
+}

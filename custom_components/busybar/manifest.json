@@ -1,0 +1,12 @@
+{
+  "domain": "busybar",
+  "name": "BUSY Bar",
+  "codeowners": ["@kylewhirl"],
+  "config_flow": true,
+  "documentation": "https://github.com/kylewhirl/busybar-home-assistant",
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/kylewhirl/busybar-home-assistant/issues",
+  "requirements": ["busylib==1.0.0"],
+  "version": "0.1.0"
+}
