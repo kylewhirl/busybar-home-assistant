@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5
+
+- Keep BUSY's Canvas session alive while updating the dashboard instead of
+  clearing it before every draw. This prevents dial and button events from
+  leaking into the app underneath and removes the visible app flash.
+
 ## 0.1.4
 
 - Handle the physical firmware's empty Select/OK event so adjustment mode can

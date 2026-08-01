@@ -132,6 +132,9 @@ If more than one bar is configured, pass `config_entry_id` to target one.
 - Dial and button input is local push over the BUSY WebSocket stream.
 - Home Assistant remains authoritative: selected entity state changes trigger
   a display redraw.
+- Dashboard redraws update stable Canvas elements in place so BUSY keeps its
+  system-layer input capture active and the app underneath never receives the
+  same dial or button event.
 - Display elements use the integration-owned `home_assistant` application
   namespace so exiting or unloading does not delete another app's assets.
 - Device-type icons are generated in memory during setup and uploaded into the

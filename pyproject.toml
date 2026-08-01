@@ -1,6 +1,6 @@
 [project]
 name = "busybar-home-assistant"
-version = "0.1.4"
+version = "0.1.5"
 description = "Home Assistant control surface and pixel dashboard for BUSY Bar"
 readme = "README.md"
 requires-python = ">=3.14.2"

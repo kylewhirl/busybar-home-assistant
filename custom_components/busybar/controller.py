@@ -344,9 +344,8 @@ class BusyBarController:
         await self._async_draw(payload)
 
     async def _async_draw(self, payload: types.DisplayElements) -> bool:
-        """Draw while treating another app's higher priority as normal."""
+        """Update the active Canvas app without releasing its input capture."""
         async with self._draw_lock:
-            await self.client.display_clear(application_name=APPLICATION_NAME)
             try:
                 await self.client.display_draw(payload, sanitize_text=True)
             except exceptions.BusyBarAPIError as err:

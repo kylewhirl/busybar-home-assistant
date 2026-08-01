@@ -180,7 +180,7 @@ async def test_empty_dashboard_draws_persistent_setup_hint() -> None:
 
     await controller.async_render()
 
-    client.display_clear.assert_awaited_once_with(application_name="home_assistant")
+    client.display_clear.assert_not_awaited()
     client.display_draw.assert_awaited_once()
     payload = client.display_draw.await_args.args[0]
     assert any(
@@ -201,10 +201,22 @@ async def test_higher_priority_app_is_not_treated_as_a_controller_failure() -> N
 
     await controller.async_render()
 
-    controller.client.display_clear.assert_awaited_once_with(
-        application_name="home_assistant"
-    )
+    controller.client.display_clear.assert_not_awaited()
     controller.client.display_draw.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_repeated_renders_keep_canvas_input_capture_active() -> None:
+    """Updating pixels must not expose the underlying Apps UI between draws."""
+    state = State("light.one", "on", {"brightness": 128})
+    controller, _ = controller_for(state)
+    controller.navigation = NavigationState.BROWSE
+
+    await controller.async_render()
+    await controller.async_render()
+
+    controller.client.display_clear.assert_not_awaited()
+    assert controller.client.display_draw.await_count == 2
 
 
 @pytest.mark.asyncio
