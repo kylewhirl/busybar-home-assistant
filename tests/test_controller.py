@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from busylib import exceptions, types
@@ -217,6 +217,23 @@ async def test_repeated_renders_keep_canvas_input_capture_active() -> None:
 
     controller.client.display_clear.assert_not_awaited()
     assert controller.client.display_draw.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_back_from_control_exits_instead_of_reopening_canvas() -> None:
+    """Firmware tears down Canvas on Back, so the controller must not redraw it."""
+    state = State("light.one", "on", {"brightness": 128})
+    controller, _ = controller_for(state)
+    controller.navigation = NavigationState.CONTROL
+    controller.async_schedule_render = MagicMock()
+
+    await controller._async_handle_button("back")
+
+    assert controller.navigation == NavigationState.INACTIVE
+    controller.client.display_clear.assert_awaited_once_with(
+        application_name="home_assistant"
+    )
+    controller.async_schedule_render.assert_not_called()
 
 
 @pytest.mark.asyncio

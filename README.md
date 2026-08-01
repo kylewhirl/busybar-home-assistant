@@ -15,7 +15,7 @@ The bar behaves like a tiny, physical Home Assistant app:
    away, or press **Select** again to enter adjustment mode.
 4. Turn the **dial** to adjust it.
 5. Press **Start** to toggle or activate it from either view.
-6. Press **Back** to return to the accessory list, then Back again to exit.
+6. Press **Select** again to return to the accessory list. Press **Back** to exit.
 
 Keep the physical selector on **Apps** while using Home Assistant. The BUSY
 firmware reserves the other selector positions for its built-in status and

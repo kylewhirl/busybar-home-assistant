@@ -64,10 +64,16 @@ def test_requested_navigation_flow() -> None:
     navigation, activate = button_transition(navigation, "start", True)
     assert (navigation, activate) == (NavigationState.CONTROL, True)
 
-    navigation, activate = button_transition(navigation, "back", True)
+    navigation, activate = button_transition(navigation, "ok", True)
     assert (navigation, activate) == (NavigationState.BROWSE, False)
 
     navigation, activate = button_transition(navigation, "back", True)
+    assert (navigation, activate) == (NavigationState.INACTIVE, False)
+
+
+def test_back_exits_directly_from_control_because_firmware_closes_canvas() -> None:
+    navigation, activate = button_transition(NavigationState.CONTROL, "back", True)
+
     assert (navigation, activate) == (NavigationState.INACTIVE, False)
 
 
@@ -128,3 +134,20 @@ def test_front_display_makes_control_mode_visible_and_scrolls_quickly() -> None:
     assert elements["front_name"].scroll_rate >= 60
     assert elements["front_name"].scroll_start_delay <= 300
     assert elements["front_mode"].text == "SELECT"
+
+
+def test_control_hint_uses_select_to_return_to_accessory_list() -> None:
+    payload = build_dashboard_payload(
+        domain="light",
+        name="Desk Lamp",
+        state_label="on",
+        navigation=NavigationState.CONTROL,
+        accent_color="#63E6BE",
+        priority=95,
+        position=(1, 2),
+        level=50,
+    )
+    elements = {element.id: element for element in payload.elements}
+
+    assert "SELECT: LIST" in elements["back_hint"].text
+    assert "BACK: LIST" not in elements["back_hint"].text

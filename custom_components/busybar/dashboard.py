@@ -27,10 +27,12 @@ def button_transition(
             return NavigationState.BROWSE, False
         if navigation == NavigationState.BROWSE and has_accessory:
             return NavigationState.CONTROL, False
-    elif button == "back":
         if navigation == NavigationState.CONTROL:
             return NavigationState.BROWSE, False
-        if navigation == NavigationState.BROWSE:
+    elif button == "back":
+        # BUSY firmware closes Canvas before publishing a Back event. Treat Back
+        # as an app exit so we never reopen Canvas over the underlying app.
+        if navigation in (NavigationState.BROWSE, NavigationState.CONTROL):
             return NavigationState.INACTIVE, False
     elif (
         button == "start"
@@ -195,7 +197,7 @@ def build_dashboard_payload(
             text=(
                 "DIAL: BROWSE   SELECT: ADJUST   START: TOGGLE"
                 if navigation == NavigationState.BROWSE
-                else "DIAL: ADJUST   START: TOGGLE   BACK: LIST"
+                else "DIAL: ADJUST   START: TOGGLE   SELECT: LIST"
             ),
             font="tiny",
             color="#888888FF",

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.6
+
+- Keep the BUSY Canvas lifecycle aligned with the device firmware: **Back** now
+  exits Home Assistant directly, while **Select** returns from control mode to
+  the accessory list. This prevents Back from briefly revealing and then
+  reopening the app underneath.
+
 ## 0.1.5
 
 - Keep BUSY's Canvas session alive while updating the dashboard instead of
