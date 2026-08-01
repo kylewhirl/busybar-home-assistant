@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.7
+
+- Show dial changes optimistically and redraw at a fixed 25 FPS ceiling, so the
+  displayed percentage tracks rapid brightness changes instead of waiting for
+  Home Assistant state reports or a pause in dial movement.
+
 ## 0.1.6
 
 - Keep the BUSY Canvas lifecycle aligned with the device firmware: **Back** now

@@ -30,6 +30,7 @@ def controller_for(state: State, *, dial_step: int = 5) -> tuple[BusyBarControll
         options={CONF_ENTITIES: [state.entity_id], CONF_DIAL_STEP: dial_step},
     )
     controller = BusyBarController(hass, entry, AsyncMock())
+    controller.async_schedule_render = MagicMock()
     return controller, services.async_call
 
 
@@ -158,6 +159,49 @@ async def test_dial_maps_to_domain_service(
 
 
 @pytest.mark.asyncio
+async def test_rapid_light_dial_events_accumulate_without_waiting_for_ha_state() -> None:
+    state = State("light.desk", "on", {"brightness": 128})
+    controller, call = controller_for(state)
+    controller.async_schedule_render = MagicMock()
+
+    await controller._async_adjust_selected(1)
+    await controller._async_adjust_selected(1)
+
+    assert call.await_args_list[0].args[2]["brightness"] == 140
+    assert call.await_args_list[1].args[2]["brightness"] == 153
+    assert controller._optimistic_levels["light.desk"][0] == 60
+    assert controller.async_schedule_render.call_count == 2
+
+
+def test_pending_render_is_not_postponed_by_more_encoder_events() -> None:
+    state = State("light.desk", "on", {"brightness": 128})
+    controller, _ = controller_for(state)
+    pending = MagicMock()
+    pending.done.return_value = False
+    controller._render_task = pending
+
+    BusyBarController.async_schedule_render(controller)
+
+    pending.cancel.assert_not_called()
+    assert controller._render_task is pending
+
+
+def test_optimistic_level_clears_when_ha_reports_the_same_value() -> None:
+    state = State("light.desk", "on", {"brightness": 153})
+    controller, _ = controller_for(state)
+    controller.navigation = NavigationState.CONTROL
+    controller._optimistic_levels["light.desk"] = (60, float("inf"))
+    event = SimpleNamespace(
+        data={"entity_id": "light.desk", "new_state": state}
+    )
+
+    controller._async_state_changed(event)
+
+    assert "light.desk" not in controller._optimistic_levels
+    controller.async_schedule_render.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_browse_wraps_in_both_directions() -> None:
     state = State("light.one", "on")
     controller, _ = controller_for(state)
@@ -217,6 +261,20 @@ async def test_repeated_renders_keep_canvas_input_capture_active() -> None:
 
     controller.client.display_clear.assert_not_awaited()
     assert controller.client.display_draw.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_render_uses_optimistic_light_level_until_ha_catches_up() -> None:
+    state = State("light.one", "on", {"brightness": 128})
+    controller, _ = controller_for(state)
+    controller.navigation = NavigationState.CONTROL
+    controller._optimistic_levels["light.one"] = (75, float("inf"))
+
+    await controller.async_render()
+
+    payload = controller.client.display_draw.await_args.args[0]
+    elements = {element.id: element for element in payload.elements}
+    assert elements["front_state"].text == "on 75%"
 
 
 @pytest.mark.asyncio

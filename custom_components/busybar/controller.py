@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -38,6 +39,9 @@ from .icons import async_upload_icons
 from .models import BusyBarConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
+
+RENDER_INTERVAL_SECONDS = 0.04
+OPTIMISTIC_LEVEL_TTL_SECONDS = 2.0
 
 
 def _color_to_hex(value: Any) -> str:
@@ -110,6 +114,7 @@ class BusyBarController:
         self._message_task: asyncio.Task[None] | None = None
         self._remove_state_listener: Callable[[], None] | None = None
         self._draw_lock = asyncio.Lock()
+        self._optimistic_levels: dict[str, tuple[int, float]] = {}
 
     @property
     def entities(self) -> list[str]:
@@ -289,10 +294,25 @@ class BusyBarController:
         self._notify()
         self.async_schedule_render()
 
+    def _display_level(self, state: State) -> int | None:
+        """Return the latest dial value while HA catches up with the device."""
+        optimistic = self._optimistic_levels.get(state.entity_id)
+        if optimistic:
+            level, expires_at = optimistic
+            if time.monotonic() < expires_at:
+                return level
+            self._optimistic_levels.pop(state.entity_id, None)
+        return _level_for_state(state)
+
     @callback
     def _async_state_changed(self, event: Event) -> None:
         entity_id = event.data.get("entity_id")
         if self.active and entity_id == self.selected_entity_id:
+            new_state = event.data.get("new_state")
+            optimistic = self._optimistic_levels.get(entity_id)
+            if optimistic and isinstance(new_state, State):
+                if _level_for_state(new_state) == optimistic[0]:
+                    self._optimistic_levels.pop(entity_id, None)
             self.async_schedule_render()
 
     @callback
@@ -301,13 +321,15 @@ class BusyBarController:
         if not self.active or self._message_task:
             return
         if self._render_task and not self._render_task.done():
-            self._render_task.cancel()
+            # Never restart the timer for every encoder tick. A fixed-rate
+            # redraw keeps moving values visible while the dial is still moving.
+            return
         self._render_task = self.hass.async_create_task(
             self._async_render_after_delay(), "busybar dashboard render"
         )
 
     async def _async_render_after_delay(self) -> None:
-        await asyncio.sleep(0.08)
+        await asyncio.sleep(RENDER_INTERVAL_SECONDS)
         await self.async_render()
 
     async def async_render(self) -> None:
@@ -329,17 +351,22 @@ class BusyBarController:
             await self._async_draw(payload)
             return
 
+        level = self._display_level(state)
+        state_label = _state_label(state)
+        if state.domain == "light" and entity_id in self._optimistic_levels:
+            state_label = STATE_OFF if level == 0 else STATE_ON
+
         payload = build_dashboard_payload(
             domain=state.domain,
             name=_friendly_name(state),
-            state_label=_state_label(state),
+            state_label=state_label,
             navigation=self.navigation,
             accent_color=_color_to_hex(
                 self.entry.options.get(CONF_ACCENT_COLOR, DEFAULT_ACCENT_COLOR)
             ),
             priority=int(self.entry.options.get(CONF_DISPLAY_PRIORITY, DEFAULT_DISPLAY_PRIORITY)),
             position=(self.selected_index + 1, len(self.entities)),
-            level=_level_for_state(state),
+            level=level,
         )
         await self._async_draw(payload)
 
@@ -423,9 +450,10 @@ class BusyBarController:
             return
         domain = state.domain
         step = float(self.entry.options.get(CONF_DIAL_STEP, DEFAULT_DIAL_STEP))
-        level = _level_for_state(state)
+        level = self._display_level(state)
         data: dict[str, Any] = {ATTR_ENTITY_ID: entity_id}
         service: str | None = None
+        new_level: int | None = None
 
         if domain == "light":
             new_level = apply_dial_delta(level or 0, delta, step)
@@ -433,14 +461,17 @@ class BusyBarController:
             if new_level:
                 data["brightness"] = percent_to_brightness(new_level)
         elif domain == "fan":
+            new_level = apply_dial_delta(level or 0, delta, step)
             service = "set_percentage"
-            data["percentage"] = apply_dial_delta(level or 0, delta, step)
+            data["percentage"] = new_level
         elif domain == "cover":
+            new_level = apply_dial_delta(level or 0, delta, step)
             service = "set_cover_position"
-            data["position"] = apply_dial_delta(level or 0, delta, step)
+            data["position"] = new_level
         elif domain == "media_player":
+            new_level = apply_dial_delta(level or 0, delta, step)
             service = "volume_set"
-            data["volume_level"] = apply_dial_delta(level or 0, delta, step) / 100
+            data["volume_level"] = new_level / 100
         elif domain in ("number", "input_number"):
             minimum = float(state.attributes.get("min", 0))
             maximum = float(state.attributes.get("max", 100))
@@ -454,4 +485,10 @@ class BusyBarController:
                 data["temperature"] = float(current) + delta * 0.5
 
         if service:
+            if new_level is not None:
+                self._optimistic_levels[entity_id] = (
+                    new_level,
+                    time.monotonic() + OPTIMISTIC_LEVEL_TTL_SECONDS,
+                )
+                self.async_schedule_render()
             await self.hass.services.async_call(domain, service, data, blocking=False)
