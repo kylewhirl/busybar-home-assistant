@@ -10,7 +10,7 @@ from PIL import Image, ImageColor, ImageDraw
 
 APPLICATION_NAME = "home_ui_demo"
 ICON_KINDS = ("light", "desk_lamp", "fan", "plug")
-ICON_SIZES = (14, 16, 32, 56)
+ICON_SIZES = (10, 14, 16, 32, 56)
 FRONT_ACCENT = "#63E6BE"
 
 

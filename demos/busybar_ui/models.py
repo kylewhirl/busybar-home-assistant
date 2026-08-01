@@ -11,7 +11,6 @@ class DemoView(StrEnum):
     """Shared navigation depth."""
 
     BROWSE = "browse"
-    CONTROL = "control"
     PROPERTIES = "properties"
     EDIT = "edit"
 
@@ -82,40 +81,18 @@ class BaseDemo:
 
 
 @dataclass
-class GridDemo(BaseDemo):
-    """Four-device list with a focused brightness view."""
+class HomeFlowDemo(BaseDemo):
+    """One Home Assistant app with progressively deeper screens."""
 
-    def handle(self, event_type: str, value: Any) -> bool:
-        if event_type == "encoder":
-            if self.view == DemoView.BROWSE:
-                self.move_device(int(value))
-            else:
-                self.device.adjust_brightness(int(value))
-            return True
-        if event_type != "button":
-            return True
-        common = self._handle_common_button(str(value))
-        if common is not None:
-            return common
-        if value == "ok":
-            self.view = (
-                DemoView.CONTROL if self.view == DemoView.BROWSE else DemoView.BROWSE
-            )
-        return True
-
-
-PropertyName = Literal["brightness", "color", "temperature"]
-
-
-@dataclass
-class CapabilitiesDemo(BaseDemo):
-    """One light with a property selector and dedicated editors."""
-
-    properties: tuple[PropertyName, ...] = ("brightness", "color", "temperature")
+    properties: tuple[Literal["brightness", "color", "temperature"], ...] = (
+        "brightness",
+        "color",
+        "temperature",
+    )
     property_index: int = 0
 
     @property
-    def property_name(self) -> PropertyName:
+    def property_name(self) -> Literal["brightness", "color", "temperature"]:
         return self.properties[self.property_index]
 
     def handle(self, event_type: str, value: Any) -> bool:
@@ -124,7 +101,9 @@ class CapabilitiesDemo(BaseDemo):
             if self.view == DemoView.BROWSE:
                 self.move_device(delta)
             elif self.view == DemoView.PROPERTIES:
-                self.property_index = (self.property_index + delta) % len(self.properties)
+                self.property_index = (self.property_index + delta) % len(
+                    self.properties
+                )
             elif self.view == DemoView.EDIT:
                 self._adjust_property(delta)
             return True
@@ -149,31 +128,10 @@ class CapabilitiesDemo(BaseDemo):
             self.device.color_index = (self.device.color_index + delta) % 6
             self.device.on = True
         else:
-            self.device.kelvin = max(2200, min(6500, self.device.kelvin + delta * 200))
-            self.device.on = True
-
-
-@dataclass
-class FocusDemo(BaseDemo):
-    """Large-icon carousel with only one accessory competing for attention."""
-
-    def handle(self, event_type: str, value: Any) -> bool:
-        if event_type == "encoder":
-            if self.view == DemoView.BROWSE:
-                self.move_device(int(value))
-            else:
-                self.device.adjust_brightness(int(value))
-            return True
-        if event_type != "button":
-            return True
-        common = self._handle_common_button(str(value))
-        if common is not None:
-            return common
-        if value == "ok":
-            self.view = (
-                DemoView.CONTROL if self.view == DemoView.BROWSE else DemoView.BROWSE
+            self.device.kelvin = max(
+                2200, min(6500, self.device.kelvin + delta * 200)
             )
-        return True
+            self.device.on = True
 
 
 def parse_input_updates(message: dict[str, Any]) -> list[tuple[str, Any]]:

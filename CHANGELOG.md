@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.0
+
+- Replace the separate accessory and adjustment screens with a two-screen
+  flow: browse up to four accessories, then open the selected accessory's
+  icon and controls together with one Select press.
+- Let the dial choose brightness, color, or color temperature; Select enters
+  and exits editing, while Start toggles the accessory from every screen.
+- Update brightness, color, and temperature values optimistically so the BUSY
+  display keeps pace with rapid dial movement instead of waiting for Home
+  Assistant state reports.
+- Use larger, higher-resolution device icons throughout the dashboard.
+
 ## 0.1.8
 
 - Guarantee a trailing display frame when more dial events arrive during an

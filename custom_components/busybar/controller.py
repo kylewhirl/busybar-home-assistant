@@ -26,12 +26,15 @@ from .const import (
     EVENT_INPUT,
 )
 from .dashboard import (
+    ControlKind,
     NavigationState,
     apply_dial_delta,
     brightness_to_percent,
     build_dashboard_payload,
     build_message_payload,
     button_transition,
+    clamp,
+    controls_for,
     parse_input_updates,
     percent_to_brightness,
 )
@@ -42,6 +45,14 @@ _LOGGER = logging.getLogger(__name__)
 
 RENDER_INTERVAL_SECONDS = 0.04
 OPTIMISTIC_LEVEL_TTL_SECONDS = 2.0
+LIGHT_COLOR_PRESETS: tuple[tuple[str, tuple[int, int, int]], ...] = (
+    ("MINT", (99, 230, 190)),
+    ("AMBER", (255, 191, 71)),
+    ("BLUE", (80, 150, 255)),
+    ("ROSE", (255, 94, 147)),
+    ("LIME", (159, 232, 112)),
+    ("VIOLET", (167, 139, 250)),
+)
 
 
 def _color_to_hex(value: Any) -> str:
@@ -92,6 +103,20 @@ def _state_label(state: State) -> str:
     return state.state.replace("_", " ")
 
 
+def _nearest_color_index(value: Any) -> int:
+    """Return the nearest friendly preset to an RGB-like value."""
+    if not isinstance(value, (list, tuple)) or len(value) < 3:
+        return 0
+    rgb = tuple(int(channel) for channel in value[:3])
+    return min(
+        range(len(LIGHT_COLOR_PRESETS)),
+        key=lambda index: sum(
+            (rgb[channel] - LIGHT_COLOR_PRESETS[index][1][channel]) ** 2
+            for channel in range(3)
+        ),
+    )
+
+
 class BusyBarController:
     """Translate BUSY inputs into Home Assistant navigation and services."""
 
@@ -106,6 +131,7 @@ class BusyBarController:
         self.client = client
         self.navigation = NavigationState.INACTIVE
         self.selected_index = 0
+        self.control_index = 0
         self.stream_connected = False
         self.switch_position: str | None = None
         self._listeners: set[Callable[[], None]] = set()
@@ -116,6 +142,9 @@ class BusyBarController:
         self._remove_state_listener: Callable[[], None] | None = None
         self._draw_lock = asyncio.Lock()
         self._optimistic_levels: dict[str, tuple[int, float]] = {}
+        self._optimistic_controls: dict[
+            tuple[str, ControlKind], tuple[int, float]
+        ] = {}
 
     @property
     def entities(self) -> list[str]:
@@ -137,6 +166,22 @@ class BusyBarController:
         entity_id = self.selected_entity_id
         state = self.hass.states.get(entity_id) if entity_id else None
         return _friendly_name(state) if state else entity_id
+
+    @property
+    def selected_controls(self) -> tuple[ControlKind, ...]:
+        """Controls available for the highlighted accessory."""
+        entity_id = self.selected_entity_id
+        state = self.hass.states.get(entity_id) if entity_id else None
+        return controls_for(state.domain, state.attributes) if state else ()
+
+    @property
+    def selected_control(self) -> ControlKind | None:
+        """Currently highlighted control on the combined device screen."""
+        controls = self.selected_controls
+        if not controls:
+            return None
+        self.control_index %= len(controls)
+        return controls[self.control_index]
 
     @property
     def active(self) -> bool:
@@ -242,6 +287,12 @@ class BusyBarController:
             await self.async_close()
 
     async def _async_handle_button(self, button: str) -> None:
+        if (
+            button == "ok"
+            and self.navigation == NavigationState.CONTROL
+            and not self.selected_controls
+        ):
+            return
         next_navigation, should_activate = button_transition(
             self.navigation, button, self.selected_entity_id is not None
         )
@@ -263,11 +314,18 @@ class BusyBarController:
         if self.navigation == NavigationState.BROWSE:
             await self.async_select_relative(delta)
         elif self.navigation == NavigationState.CONTROL:
+            controls = self.selected_controls
+            if controls:
+                self.control_index = (self.control_index + delta) % len(controls)
+                self._notify()
+                self.async_schedule_render()
+        elif self.navigation == NavigationState.EDIT:
             await self._async_adjust_selected(delta)
 
     async def async_open(self, *, request_apps_mode: bool = True) -> None:
         """Enter the accessory browser."""
         self.navigation = NavigationState.BROWSE
+        self.control_index = 0
         self._notify()
         if request_apps_mode:
             try:
@@ -294,6 +352,7 @@ class BusyBarController:
         if not self.entities:
             return
         self.selected_index = (self.selected_index + delta) % len(self.entities)
+        self.control_index = 0
         self._notify()
         self.async_schedule_render()
 
@@ -307,6 +366,56 @@ class BusyBarController:
             self._optimistic_levels.pop(state.entity_id, None)
         return _level_for_state(state)
 
+    def _control_value(self, state: State, control: ControlKind | None) -> str:
+        """Format the selected control's current value for the pixel display."""
+        if control in (ControlKind.BRIGHTNESS, ControlKind.LEVEL):
+            level = self._display_level(state)
+            return f"{level}%" if level is not None else "--"
+        if control == ControlKind.COLOR:
+            optimistic = self._optimistic_control_value(state, control)
+            color_index = (
+                optimistic
+                if optimistic is not None
+                else _nearest_color_index(state.attributes.get("rgb_color"))
+            )
+            return LIGHT_COLOR_PRESETS[color_index][0]
+        if control == ControlKind.TEMPERATURE:
+            optimistic = self._optimistic_control_value(state, control)
+            if state.domain == "light":
+                value = (
+                    optimistic
+                    if optimistic is not None
+                    else state.attributes.get("color_temp_kelvin")
+                )
+                return f"{int(value)}K" if value is not None else "--"
+            value = state.attributes.get("temperature")
+            return f"{value}°" if value is not None else "--"
+        return _state_label(state).upper()
+
+    def _optimistic_control_value(
+        self, state: State, control: ControlKind
+    ) -> int | None:
+        """Return a recent dial value while Home Assistant catches up."""
+        key = (state.entity_id, control)
+        optimistic = self._optimistic_controls.get(key)
+        if optimistic:
+            value, expires_at = optimistic
+            if time.monotonic() < expires_at:
+                return value
+            self._optimistic_controls.pop(key, None)
+        return None
+
+    def _browse_window(self) -> tuple[tuple[str, ...], int]:
+        """Return the current four-accessory page and selected slot."""
+        if not self.entities:
+            return (), 0
+        page_start = (self.selected_index // 4) * 4
+        entity_ids = self.entities[page_start : page_start + 4]
+        return (
+            tuple(entity_id.split(".", 1)[0] for entity_id in entity_ids),
+            self.selected_index - page_start,
+        )
+
     @callback
     def _async_state_changed(self, event: Event) -> None:
         entity_id = event.data.get("entity_id")
@@ -316,6 +425,19 @@ class BusyBarController:
             if optimistic and isinstance(new_state, State):
                 if _level_for_state(new_state) == optimistic[0]:
                     self._optimistic_levels.pop(entity_id, None)
+            if isinstance(new_state, State):
+                color_key = (entity_id, ControlKind.COLOR)
+                color = self._optimistic_controls.get(color_key)
+                if color and _nearest_color_index(
+                    new_state.attributes.get("rgb_color")
+                ) == color[0]:
+                    self._optimistic_controls.pop(color_key, None)
+                temperature_key = (entity_id, ControlKind.TEMPERATURE)
+                temperature = self._optimistic_controls.get(temperature_key)
+                if temperature and int(
+                    new_state.attributes.get("color_temp_kelvin") or 0
+                ) == temperature[0]:
+                    self._optimistic_controls.pop(temperature_key, None)
             self.async_schedule_render()
 
     @callback
@@ -362,6 +484,10 @@ class BusyBarController:
         if state.domain == "light" and entity_id in self._optimistic_levels:
             state_label = STATE_OFF if level == 0 else STATE_ON
 
+        controls = self.selected_controls
+        selected_control = self.selected_control
+        browse_domains, browse_selected = self._browse_window()
+
         payload = build_dashboard_payload(
             domain=state.domain,
             name=_friendly_name(state),
@@ -373,6 +499,11 @@ class BusyBarController:
             priority=int(self.entry.options.get(CONF_DISPLAY_PRIORITY, DEFAULT_DISPLAY_PRIORITY)),
             position=(self.selected_index + 1, len(self.entities)),
             level=level,
+            controls=controls,
+            selected_control=selected_control,
+            control_value=self._control_value(state, selected_control),
+            browse_domains=browse_domains,
+            browse_selected=browse_selected,
         )
         await self._async_draw(payload)
 
@@ -462,10 +593,48 @@ class BusyBarController:
         new_level: int | None = None
 
         if domain == "light":
-            new_level = apply_dial_delta(level or 0, delta, step)
-            service = "turn_off" if new_level == 0 else "turn_on"
-            if new_level:
-                data["brightness"] = percent_to_brightness(new_level)
+            if self.selected_control == ControlKind.COLOR:
+                current_index = self._optimistic_control_value(
+                    state, ControlKind.COLOR
+                )
+                if current_index is None:
+                    current_index = _nearest_color_index(
+                        state.attributes.get("rgb_color")
+                    )
+                color_index = (current_index + delta) % len(LIGHT_COLOR_PRESETS)
+                service = "turn_on"
+                data["rgb_color"] = LIGHT_COLOR_PRESETS[color_index][1]
+                self._optimistic_controls[(entity_id, ControlKind.COLOR)] = (
+                    color_index,
+                    time.monotonic() + OPTIMISTIC_LEVEL_TTL_SECONDS,
+                )
+                self.async_schedule_render()
+            elif self.selected_control == ControlKind.TEMPERATURE:
+                minimum = int(state.attributes.get("min_color_temp_kelvin", 2200))
+                maximum = int(state.attributes.get("max_color_temp_kelvin", 6500))
+                optimistic = self._optimistic_control_value(
+                    state, ControlKind.TEMPERATURE
+                )
+                current = int(
+                    optimistic
+                    if optimistic is not None
+                    else state.attributes.get("color_temp_kelvin") or 3200
+                )
+                service = "turn_on"
+                temperature = round(
+                    clamp(current + delta * 200, minimum, maximum)
+                )
+                data["color_temp_kelvin"] = temperature
+                self._optimistic_controls[(entity_id, ControlKind.TEMPERATURE)] = (
+                    temperature,
+                    time.monotonic() + OPTIMISTIC_LEVEL_TTL_SECONDS,
+                )
+                self.async_schedule_render()
+            else:
+                new_level = apply_dial_delta(level or 0, delta, step)
+                service = "turn_off" if new_level == 0 else "turn_on"
+                if new_level:
+                    data["brightness"] = percent_to_brightness(new_level)
         elif domain == "fan":
             new_level = apply_dial_delta(level or 0, delta, step)
             service = "set_percentage"

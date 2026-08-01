@@ -1,5 +1,5 @@
-"""Fake-device BUSY Bar UI studies."""
+"""Fake-device BUSY Bar Home Assistant UI flow."""
 
-from .models import CapabilitiesDemo, FocusDemo, GridDemo
+from .models import HomeFlowDemo
 
-__all__ = ["CapabilitiesDemo", "FocusDemo", "GridDemo"]
+__all__ = ["HomeFlowDemo"]

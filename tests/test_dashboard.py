@@ -4,14 +4,45 @@ import pytest
 from busylib import types
 
 from custom_components.busybar.dashboard import (
+    ControlKind,
     NavigationState,
     apply_dial_delta,
     brightness_to_percent,
     build_dashboard_payload,
     button_transition,
+    controls_for,
     parse_input_updates,
     percent_to_brightness,
 )
+
+
+def test_color_light_exposes_brightness_rgb_and_temperature_controls() -> None:
+    assert controls_for(
+        "light",
+        {"supported_color_modes": ["hs", "color_temp"]},
+    ) == (
+        ControlKind.BRIGHTNESS,
+        ControlKind.COLOR,
+        ControlKind.TEMPERATURE,
+    )
+
+
+@pytest.mark.parametrize(
+    ("domain", "expected"),
+    [
+        ("fan", (ControlKind.LEVEL,)),
+        ("cover", (ControlKind.LEVEL,)),
+        ("media_player", (ControlKind.LEVEL,)),
+        ("number", (ControlKind.LEVEL,)),
+        ("input_number", (ControlKind.LEVEL,)),
+        ("climate", (ControlKind.TEMPERATURE,)),
+        ("switch", ()),
+    ],
+)
+def test_existing_accessory_types_keep_their_adjustable_control(
+    domain: str, expected: tuple[ControlKind, ...]
+) -> None:
+    assert controls_for(domain, {}) == expected
 
 
 @pytest.mark.parametrize(
@@ -61,11 +92,14 @@ def test_requested_navigation_flow() -> None:
     navigation, activate = button_transition(navigation, "ok", True)
     assert (navigation, activate) == (NavigationState.CONTROL, False)
 
+    navigation, activate = button_transition(navigation, "ok", True)
+    assert (navigation, activate) == (NavigationState.EDIT, False)
+
     navigation, activate = button_transition(navigation, "start", True)
-    assert (navigation, activate) == (NavigationState.CONTROL, True)
+    assert (navigation, activate) == (NavigationState.EDIT, True)
 
     navigation, activate = button_transition(navigation, "ok", True)
-    assert (navigation, activate) == (NavigationState.BROWSE, False)
+    assert (navigation, activate) == (NavigationState.CONTROL, False)
 
     navigation, activate = button_transition(navigation, "back", True)
     assert (navigation, activate) == (NavigationState.INACTIVE, False)
@@ -102,7 +136,73 @@ def test_dashboard_payload_draws_both_displays(domain: str) -> None:
     assert len({element.id for element in payload.elements}) == len(payload.elements)
 
 
-def test_level_bars_stay_on_screen() -> None:
+def test_light_control_screen_combines_large_icon_tabs_and_value() -> None:
+    payload = build_dashboard_payload(
+        domain="light",
+        name="Desk Lamp",
+        state_label="on",
+        navigation=NavigationState.CONTROL,
+        accent_color="#63E6BE",
+        priority=100,
+        position=(1, 4),
+        level=72,
+        controls=(
+            ControlKind.BRIGHTNESS,
+            ControlKind.COLOR,
+            ControlKind.TEMPERATURE,
+        ),
+        selected_control=ControlKind.BRIGHTNESS,
+        control_value="72%",
+    )
+    elements = {element.id: element for element in payload.elements}
+
+    assert elements["front_image_0"].path == "ha_front_control_light.png"
+    assert elements["front_text_0"].text == "DIM"
+    assert elements["front_text_1"].text == "RGB"
+    assert elements["front_text_2"].text == "TEMP"
+    assert elements["front_text_3"].text == "72%"
+
+
+def test_browse_screen_shows_four_accessories_and_highlights_one() -> None:
+    payload = build_dashboard_payload(
+        domain="fan",
+        name="Air Purifier",
+        state_label="on",
+        navigation=NavigationState.BROWSE,
+        accent_color="#63E6BE",
+        priority=100,
+        position=(2, 4),
+        level=35,
+        browse_domains=("light", "fan", "light", "switch"),
+        browse_selected=1,
+    )
+    elements = {element.id: element for element in payload.elements}
+
+    assert elements["front_image_0"].path == "ha_front_inactive_light.png"
+    assert elements["front_image_1"].path == "ha_front_active_fan.png"
+    assert elements["front_image_2"].path == "ha_front_inactive_light.png"
+    assert elements["front_image_3"].path == "ha_front_inactive_switch.png"
+
+
+def test_nonadjustable_accessory_still_gets_combined_power_screen() -> None:
+    payload = build_dashboard_payload(
+        domain="switch",
+        name="Outlet",
+        state_label="off",
+        navigation=NavigationState.CONTROL,
+        accent_color="#63E6BE",
+        priority=100,
+        position=(1, 1),
+        control_value="OFF",
+    )
+    elements = {element.id: element for element in payload.elements}
+
+    assert elements["front_image_0"].path == "ha_front_control_switch.png"
+    assert elements["front_text_0"].text == "POWER"
+    assert elements["front_text_3"].text == "OFF"
+
+
+def test_level_value_stays_on_combined_control_screen() -> None:
     payload = build_dashboard_payload(
         domain="light",
         name="Kitchen",
@@ -112,10 +212,13 @@ def test_level_bars_stay_on_screen() -> None:
         priority=50,
         position=(1, 1),
         level=100,
+        controls=(ControlKind.BRIGHTNESS,),
+        selected_control=ControlKind.BRIGHTNESS,
+        control_value="100%",
     )
     elements = {element.id: element for element in payload.elements}
-    assert len(elements["front_level"].text) == 9
-    assert len(elements["back_level"].text) == 24
+    assert elements["front_text_3"].text == "100%"
+    assert elements["back_state"].text == "DIM  ·  100%"
 
 
 def test_front_display_makes_control_mode_visible_and_scrolls_quickly() -> None:
@@ -136,7 +239,7 @@ def test_front_display_makes_control_mode_visible_and_scrolls_quickly() -> None:
     assert elements["front_mode"].text == "SELECT"
 
 
-def test_control_hint_uses_select_to_return_to_accessory_list() -> None:
+def test_control_hint_uses_select_to_edit_selected_property() -> None:
     payload = build_dashboard_payload(
         domain="light",
         name="Desk Lamp",
@@ -149,5 +252,4 @@ def test_control_hint_uses_select_to_return_to_accessory_list() -> None:
     )
     elements = {element.id: element for element in payload.elements}
 
-    assert "SELECT: LIST" in elements["back_hint"].text
-    assert "BACK: LIST" not in elements["back_hint"].text
+    assert "SELECT: EDIT" in elements["back_hint"].text

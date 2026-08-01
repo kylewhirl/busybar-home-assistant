@@ -4,71 +4,96 @@ from busylib import types
 
 from demos.busybar_ui.layouts import render_demo
 from demos.busybar_ui.models import (
-    CapabilitiesDemo,
     DemoView,
-    FocusDemo,
-    GridDemo,
+    HomeFlowDemo,
     parse_input_updates,
 )
 
 
-def test_grid_flow_browses_selects_toggles_and_dims() -> None:
-    demo = GridDemo()
+def test_select_opens_controls_directly_from_the_accessory_overview() -> None:
+    demo = HomeFlowDemo()
 
-    demo.handle("encoder", 1)
-    assert demo.selected == 1
-    demo.handle("button", "ok")
-    assert demo.view == DemoView.CONTROL
-    demo.handle("encoder", 2)
-    assert demo.device.brightness == 55
-    demo.handle("button", "start")
-    assert demo.device.on is False
-    demo.handle("button", "ok")
     assert demo.view == DemoView.BROWSE
-
-
-def test_capability_flow_selects_and_edits_each_property() -> None:
-    demo = CapabilitiesDemo()
     demo.handle("button", "ok")
     assert demo.view == DemoView.PROPERTIES
 
-    demo.handle("encoder", 1)
-    assert demo.property_name == "color"
-    demo.handle("button", "ok")
-    demo.handle("encoder", 2)
-    assert demo.device.color_label == "BLUE"
-    demo.handle("button", "ok")
 
-    demo.handle("encoder", 1)
-    assert demo.property_name == "temperature"
+def test_combined_control_screen_keeps_the_device_icon_and_all_controls_visible() -> None:
+    demo = HomeFlowDemo()
     demo.handle("button", "ok")
-    demo.handle("encoder", 2)
-    assert demo.device.kelvin == 3400
-
-
-def test_focus_carousel_wraps_and_uses_large_back_icon() -> None:
-    demo = FocusDemo()
-    demo.handle("encoder", -1)
-    assert demo.selected == len(demo.devices) - 1
 
     payload = render_demo(demo)
-    back_icons = [
+    front_images = [
         element
         for element in payload.elements
         if isinstance(element, types.ImageElement)
-        and element.display == types.DisplayName.BACK
+        and element.display == types.DisplayName.FRONT
+        and element.path != "demo_blank.png"
     ]
-    assert back_icons[0].path.endswith("_56.png")
+    front_text = {
+        element.text
+        for element in payload.elements
+        if isinstance(element, types.TextElement)
+        and element.display == types.DisplayName.FRONT
+        and element.text
+    }
+
+    assert front_images[0].path.endswith("_16.png")
+    assert {"DIM", "RGB", "TEMP"}.issubset(front_text)
 
 
-def test_every_view_keeps_the_same_canvas_slot_ids_and_element_types() -> None:
-    for demo in (GridDemo(), CapabilitiesDemo(), FocusDemo()):
-        first = render_demo(demo)
+def test_dial_selects_an_accessory_then_a_control() -> None:
+    demo = HomeFlowDemo()
+
+    demo.handle("encoder", 1)
+    assert demo.device.name == "Desk Lamp"
+    demo.handle("button", "ok")
+    demo.handle("encoder", 1)
+    assert demo.property_name == "color"
+
+
+def test_selected_control_is_edited_without_leaving_the_control_screen() -> None:
+    demo = HomeFlowDemo()
+    demo.handle("button", "ok")
+
+    demo.handle("button", "ok")
+    assert demo.view == DemoView.EDIT
+    demo.handle("encoder", 2)
+    assert demo.device.brightness == 90
+    demo.handle("button", "ok")
+    assert demo.view == DemoView.PROPERTIES
+
+
+def test_start_toggles_the_selected_accessory_at_every_depth() -> None:
+    demo = HomeFlowDemo()
+
+    for expected_view in (
+        DemoView.BROWSE,
+        DemoView.PROPERTIES,
+        DemoView.EDIT,
+    ):
+        assert demo.view == expected_view
+        was_on = demo.device.on
+        demo.handle("button", "start")
+        assert demo.device.on is not was_on
         demo.handle("button", "ok")
-        second = render_demo(demo)
-        first_slots = {(element.id, element.display): element.type for element in first.elements}
-        second_slots = {(element.id, element.display): element.type for element in second.elements}
-        assert first_slots == second_slots
+
+
+def test_one_canvas_layout_survives_the_complete_navigation_stack() -> None:
+    demo = HomeFlowDemo()
+    payloads = []
+
+    for _ in range(4):
+        payloads.append(render_demo(demo))
+        demo.handle("button", "ok")
+
+    expected_slots = {
+        (element.id, element.display): element.type for element in payloads[0].elements
+    }
+    for payload in payloads[1:]:
+        assert {
+            (element.id, element.display): element.type for element in payload.elements
+        } == expected_slots
 
 
 def test_demo_parser_accepts_physical_empty_select_event() -> None:

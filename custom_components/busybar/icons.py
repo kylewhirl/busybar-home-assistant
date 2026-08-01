@@ -154,13 +154,22 @@ def icon_png(domain: str, size: int, color: str) -> bytes:
 
 async def async_upload_icons(client: AsyncBusyBar, domains: set[str], accent_color: str) -> None:
     """Upload only the icons needed by this dashboard configuration."""
+    blank = io.BytesIO()
+    Image.new("RGBA", (1, 1), (0, 0, 0, 0)).save(blank, "PNG")
+    await client.assets_upload(
+        application_name=APPLICATION_NAME,
+        filename="ha_blank.png",
+        data=blank.getvalue(),
+    )
     for domain in sorted(domains | {"device"}):
-        for display, size, color in (
-            (types.DisplayName.FRONT, 12, accent_color),
-            (types.DisplayName.BACK, 40, "#FFFFFF"),
+        for display, variant, size, color in (
+            (types.DisplayName.FRONT, "active", 14, accent_color),
+            (types.DisplayName.FRONT, "inactive", 10, "#FFFFFF"),
+            (types.DisplayName.FRONT, "control", 16, "#FFFFFF"),
+            (types.DisplayName.BACK, None, 40, "#FFFFFF"),
         ):
             await client.assets_upload(
                 application_name=APPLICATION_NAME,
-                filename=icon_asset_path(display, domain),
+                filename=icon_asset_path(display, domain, variant),
                 data=icon_png(domain, size, color),
             )

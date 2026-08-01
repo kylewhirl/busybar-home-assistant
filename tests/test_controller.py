@@ -11,7 +11,7 @@ from homeassistant.core import State
 
 from custom_components.busybar.const import CONF_DIAL_STEP, CONF_ENTITIES
 from custom_components.busybar.controller import BusyBarController, _level_for_state
-from custom_components.busybar.dashboard import NavigationState
+from custom_components.busybar.dashboard import ControlKind, NavigationState
 
 
 class FakeStates:
@@ -241,6 +241,86 @@ async def test_browse_wraps_in_both_directions() -> None:
 
 
 @pytest.mark.asyncio
+async def test_control_screen_dial_selects_light_property_without_changing_it() -> None:
+    state = State(
+        "light.desk",
+        "on",
+        {"brightness": 128, "supported_color_modes": ["hs", "color_temp"]},
+    )
+    controller, call = controller_for(state)
+    controller.navigation = NavigationState.CONTROL
+
+    await controller._async_handle_encoder(1)
+
+    assert controller.selected_control == ControlKind.COLOR
+    call.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_nonadjustable_accessory_does_not_enter_empty_edit_mode() -> None:
+    state = State("switch.outlet", "off")
+    controller, _ = controller_for(state)
+    controller.navigation = NavigationState.CONTROL
+
+    await controller._async_handle_button("ok")
+
+    assert controller.navigation == NavigationState.CONTROL
+
+
+@pytest.mark.asyncio
+async def test_editing_rgb_turns_dial_ticks_into_discrete_light_colors() -> None:
+    state = State(
+        "light.desk",
+        "on",
+        {
+            "brightness": 128,
+            "rgb_color": (80, 150, 255),
+            "supported_color_modes": ["hs", "color_temp"],
+        },
+    )
+    controller, call = controller_for(state)
+    controller.navigation = NavigationState.EDIT
+    controller.control_index = 1
+
+    await controller._async_handle_encoder(1)
+
+    call.assert_awaited_once_with(
+        "light",
+        "turn_on",
+        {"entity_id": "light.desk", "rgb_color": (255, 94, 147)},
+        blocking=False,
+    )
+    assert controller._control_value(state, ControlKind.COLOR) == "ROSE"
+
+
+@pytest.mark.asyncio
+async def test_editing_temperature_adjusts_light_kelvin_within_its_range() -> None:
+    state = State(
+        "light.desk",
+        "on",
+        {
+            "brightness": 128,
+            "color_temp_kelvin": 3000,
+            "min_color_temp_kelvin": 2200,
+            "max_color_temp_kelvin": 6500,
+            "supported_color_modes": ["hs", "color_temp"],
+        },
+    )
+    controller, call = controller_for(state)
+    controller.navigation = NavigationState.EDIT
+    controller.control_index = 2
+
+    await controller._async_handle_encoder(2)
+
+    call.assert_awaited_once_with(
+        "light",
+        "turn_on",
+        {"entity_id": "light.desk", "color_temp_kelvin": 3400},
+        blocking=False,
+    )
+
+
+@pytest.mark.asyncio
 async def test_empty_dashboard_draws_persistent_setup_hint() -> None:
     hass = SimpleNamespace(states=SimpleNamespace(get=lambda entity_id: None))
     entry = SimpleNamespace(entry_id="test-entry", options={CONF_ENTITIES: []})
@@ -299,7 +379,31 @@ async def test_render_uses_optimistic_light_level_until_ha_catches_up() -> None:
 
     payload = controller.client.display_draw.await_args.args[0]
     elements = {element.id: element for element in payload.elements}
-    assert elements["front_state"].text == "on 75%"
+    assert elements["front_text_3"].text == "75%"
+
+
+@pytest.mark.asyncio
+async def test_render_uses_combined_light_control_screen_after_one_select() -> None:
+    state = State(
+        "light.one",
+        "on",
+        {
+            "brightness": 128,
+            "rgb_color": (80, 150, 255),
+            "supported_color_modes": ["hs", "color_temp"],
+        },
+    )
+    controller, _ = controller_for(state)
+    controller.navigation = NavigationState.CONTROL
+    controller.control_index = 1
+
+    await controller.async_render()
+
+    payload = controller.client.display_draw.await_args.args[0]
+    elements = {element.id: element for element in payload.elements}
+    assert elements["front_image_0"].path == "ha_front_control_light.png"
+    assert elements["front_text_1"].text == "RGB"
+    assert elements["front_text_3"].text == "BLUE"
 
 
 @pytest.mark.asyncio

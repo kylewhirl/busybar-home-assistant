@@ -11,7 +11,7 @@ from custom_components.busybar.icons import async_upload_icons, icon_png
 
 
 @pytest.mark.parametrize("domain", [*SUPPORTED_DOMAINS, "device"])
-@pytest.mark.parametrize("size", [12, 40])
+@pytest.mark.parametrize("size", [10, 14, 16, 40])
 def test_every_supported_domain_renders_a_transparent_icon(domain: str, size: int) -> None:
     with Image.open(io.BytesIO(icon_png(domain, size, "#63E6BE"))) as image:
         assert image.mode == "RGBA"
@@ -26,17 +26,24 @@ async def test_uploads_front_and_back_assets_for_configured_domains() -> None:
 
     await async_upload_icons(client, {"light", "fan"}, "#63E6BE")
 
-    assert client.assets_upload.await_count == 6
+    assert client.assets_upload.await_count == 13
     filenames = {
         call.kwargs["filename"] for call in client.assets_upload.await_args_list
     }
     assert filenames == {
-        "ha_front_device.png",
+        "ha_blank.png",
         "ha_back_device.png",
-        "ha_front_fan.png",
+        "ha_front_active_device.png",
+        "ha_front_inactive_device.png",
+        "ha_front_control_device.png",
         "ha_back_fan.png",
-        "ha_front_light.png",
+        "ha_front_active_fan.png",
+        "ha_front_inactive_fan.png",
+        "ha_front_control_fan.png",
         "ha_back_light.png",
+        "ha_front_active_light.png",
+        "ha_front_inactive_light.png",
+        "ha_front_control_light.png",
     }
     assert all(
         call.kwargs["application_name"] == "home_assistant"

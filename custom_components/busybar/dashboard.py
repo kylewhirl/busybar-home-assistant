@@ -16,6 +16,36 @@ class NavigationState(StrEnum):
     INACTIVE = "inactive"
     BROWSE = "browse"
     CONTROL = "control"
+    EDIT = "edit"
+
+
+class ControlKind(StrEnum):
+    """Adjustable values exposed on the combined device screen."""
+
+    BRIGHTNESS = "brightness"
+    COLOR = "color"
+    TEMPERATURE = "temperature"
+    LEVEL = "level"
+
+
+COLOR_MODES = {"hs", "xy", "rgb", "rgbw", "rgbww"}
+
+
+def controls_for(domain: str, attributes: dict[str, Any]) -> tuple[ControlKind, ...]:
+    """Return the controls supported by an entity in display order."""
+    if domain == "light":
+        modes = {str(mode) for mode in attributes.get("supported_color_modes", [])}
+        controls = [ControlKind.BRIGHTNESS]
+        if modes & COLOR_MODES:
+            controls.append(ControlKind.COLOR)
+        if "color_temp" in modes:
+            controls.append(ControlKind.TEMPERATURE)
+        return tuple(controls)
+    if domain in ("fan", "cover", "media_player", "number", "input_number"):
+        return (ControlKind.LEVEL,)
+    if domain == "climate":
+        return (ControlKind.TEMPERATURE,)
+    return ()
 
 
 def button_transition(
@@ -28,15 +58,22 @@ def button_transition(
         if navigation == NavigationState.BROWSE and has_accessory:
             return NavigationState.CONTROL, False
         if navigation == NavigationState.CONTROL:
-            return NavigationState.BROWSE, False
+            return NavigationState.EDIT, False
+        if navigation == NavigationState.EDIT:
+            return NavigationState.CONTROL, False
     elif button == "back":
         # BUSY firmware closes Canvas before publishing a Back event. Treat Back
         # as an app exit so we never reopen Canvas over the underlying app.
-        if navigation in (NavigationState.BROWSE, NavigationState.CONTROL):
+        if navigation in (
+            NavigationState.BROWSE,
+            NavigationState.CONTROL,
+            NavigationState.EDIT,
+        ):
             return NavigationState.INACTIVE, False
     elif (
         button == "start"
-        and navigation in (NavigationState.BROWSE, NavigationState.CONTROL)
+        and navigation
+        in (NavigationState.BROWSE, NavigationState.CONTROL, NavigationState.EDIT)
         and has_accessory
     ):
         return navigation, True
@@ -86,10 +123,13 @@ def parse_input_updates(message: dict[str, Any]) -> list[tuple[str, Any]]:
     return events
 
 
-def icon_asset_path(display: types.DisplayName, domain: str) -> str:
+def icon_asset_path(
+    display: types.DisplayName, domain: str, variant: str | None = None
+) -> str:
     """Return the uploaded icon filename, falling back to a generic device."""
     safe_domain = domain if domain.replace("_", "").isalnum() else "device"
-    return f"ha_{display.value}_{safe_domain}.png"
+    suffix = f"_{variant}" if variant else ""
+    return f"ha_{display.value}{suffix}_{safe_domain}.png"
 
 
 def build_dashboard_payload(
@@ -102,6 +142,11 @@ def build_dashboard_payload(
     priority: int,
     position: tuple[int, int],
     level: int | None = None,
+    controls: tuple[ControlKind, ...] = (),
+    selected_control: ControlKind | None = None,
+    control_value: str = "",
+    browse_domains: tuple[str, ...] = (),
+    browse_selected: int = 0,
 ) -> types.DisplayElements:
     """Build a single draw payload spanning the front and back displays."""
     current, total = position
@@ -110,6 +155,246 @@ def build_dashboard_payload(
     )
     label = "BROWSE" if navigation == NavigationState.BROWSE else "CONTROL"
     level_suffix = f"  ·  {level}%" if level is not None else ""
+
+    if navigation == NavigationState.BROWSE and browse_domains:
+        domains = [*browse_domains[:4]]
+        domains.extend([""] * (4 - len(domains)))
+        front_images = [
+            types.ImageElement(
+                id=f"front_image_{index}",
+                display=types.DisplayName.FRONT,
+                x=index * 18 + (0 if index == browse_selected else 2),
+                y=0 if index == browse_selected else 2,
+                path=(
+                    icon_asset_path(
+                        types.DisplayName.FRONT,
+                        slot_domain,
+                        "active" if index == browse_selected else "inactive",
+                    )
+                    if slot_domain
+                    else "ha_blank.png"
+                ),
+            )
+            for index, slot_domain in enumerate(domains)
+        ]
+        return types.DisplayElements(
+            application_name=APPLICATION_NAME,
+            priority=priority,
+            elements=[
+                *front_images,
+                *[
+                    types.TextElement(
+                        id=f"front_text_{index}",
+                        display=types.DisplayName.FRONT,
+                        x=0,
+                        y=0,
+                        text="",
+                        font="tiny",
+                        color="#FFFFFFFF",
+                    )
+                    for index in range(4)
+                ],
+                types.ImageElement(
+                    id="back_icon",
+                    display=types.DisplayName.BACK,
+                    x=8,
+                    y=15,
+                    path=icon_asset_path(types.DisplayName.BACK, domain),
+                ),
+                types.TextElement(
+                    id="back_kicker",
+                    display=types.DisplayName.BACK,
+                    x=58,
+                    y=8,
+                    text=f"HOME ASSISTANT  {current}/{total}",
+                    font="tiny",
+                    color="#999999FF",
+                ),
+                types.TextElement(
+                    id="back_name",
+                    display=types.DisplayName.BACK,
+                    x=58,
+                    y=25,
+                    width=96,
+                    text=name,
+                    font="normal",
+                    color="#FFFFFFFF",
+                    scroll_rate=55,
+                    scroll_start_delay=300,
+                    scroll_repeat_delay=350,
+                ),
+                types.TextElement(
+                    id="back_state",
+                    display=types.DisplayName.BACK,
+                    x=58,
+                    y=47,
+                    text=(
+                        f"{domain.replace('_', ' ').upper()}  ·  "
+                        f"{state_label.upper()}{level_suffix}"
+                    ),
+                    font="small",
+                    color="#CCCCCCFF",
+                ),
+                types.TextElement(
+                    id="back_hint",
+                    display=types.DisplayName.BACK,
+                    x=8,
+                    y=68,
+                    text="DIAL: BROWSE   SELECT: CONTROLS   START: TOGGLE",
+                    font="tiny",
+                    color="#888888FF",
+                ),
+                types.TextElement(
+                    id="back_mode",
+                    display=types.DisplayName.BACK,
+                    x=152,
+                    y=8,
+                    align="top_right",
+                    text="BROWSE",
+                    font="tiny",
+                    color="#777777FF",
+                ),
+            ],
+        )
+
+    if navigation in (NavigationState.CONTROL, NavigationState.EDIT):
+        selected_control = selected_control or (controls[0] if controls else None)
+        control_labels = {
+            ControlKind.BRIGHTNESS: "DIM",
+            ControlKind.COLOR: "RGB",
+            ControlKind.TEMPERATURE: "TEMP",
+            ControlKind.LEVEL: "LEVEL",
+        }
+        front_labels = (
+            [control_labels[control] for control in controls[:3]]
+            if controls
+            else ["POWER"]
+        )
+        front_labels.extend([""] * (3 - len(front_labels)))
+        label_positions = (18, 35, 52)
+        front_elements: list[types.DisplayElement] = [
+            types.ImageElement(
+                id="front_image_0",
+                display=types.DisplayName.FRONT,
+                x=0,
+                y=0,
+                path=icon_asset_path(types.DisplayName.FRONT, domain, "control"),
+            ),
+            *[
+                types.ImageElement(
+                    id=f"front_image_{index}",
+                    display=types.DisplayName.FRONT,
+                    x=0,
+                    y=0,
+                    path="ha_blank.png",
+                )
+                for index in range(1, 4)
+            ],
+            *[
+                types.TextElement(
+                    id=f"front_text_{index}",
+                    display=types.DisplayName.FRONT,
+                    x=label_positions[index],
+                    y=0,
+                    text=text,
+                    font="tiny",
+                    color=(
+                        accent_color
+                        if index < len(controls)
+                        and controls[index] == selected_control
+                        else accent_color
+                        if not controls and index == 0
+                        else "#A0A0A0FF"
+                    ),
+                )
+                for index, text in enumerate(front_labels)
+            ],
+            types.TextElement(
+                id="front_text_3",
+                display=types.DisplayName.FRONT,
+                x=19,
+                y=8,
+                text=control_value,
+                font="small",
+                color=(
+                    accent_color
+                    if navigation == NavigationState.EDIT
+                    else "#FFFFFFFF"
+                ),
+            ),
+        ]
+        return types.DisplayElements(
+            application_name=APPLICATION_NAME,
+            priority=priority,
+            elements=[
+                *front_elements,
+                types.ImageElement(
+                    id="back_icon",
+                    display=types.DisplayName.BACK,
+                    x=8,
+                    y=15,
+                    path=icon_asset_path(types.DisplayName.BACK, domain),
+                ),
+                types.TextElement(
+                    id="back_kicker",
+                    display=types.DisplayName.BACK,
+                    x=58,
+                    y=8,
+                    text=f"HOME ASSISTANT  {current}/{total}",
+                    font="tiny",
+                    color="#999999FF",
+                ),
+                types.TextElement(
+                    id="back_name",
+                    display=types.DisplayName.BACK,
+                    x=58,
+                    y=25,
+                    width=96,
+                    text=name,
+                    font="normal",
+                    color="#FFFFFFFF",
+                    scroll_rate=55,
+                    scroll_start_delay=300,
+                    scroll_repeat_delay=350,
+                ),
+                types.TextElement(
+                    id="back_state",
+                    display=types.DisplayName.BACK,
+                    x=58,
+                    y=47,
+                    text=(
+                        f"{control_labels[selected_control]}  ·  {control_value}"
+                        if selected_control
+                        else f"POWER  ·  {control_value}"
+                    ),
+                    font="small",
+                    color=accent_color,
+                ),
+                types.TextElement(
+                    id="back_hint",
+                    display=types.DisplayName.BACK,
+                    x=8,
+                    y=68,
+                    text=(
+                        "DIAL: CHANGE   SELECT: DONE   START: TOGGLE"
+                        if navigation == NavigationState.EDIT
+                        else "DIAL: PICK   SELECT: EDIT   START: TOGGLE"
+                    ),
+                    font="tiny",
+                    color="#888888FF",
+                ),
+                types.TextElement(
+                    id="back_mode",
+                    display=types.DisplayName.BACK,
+                    x=152,
+                    y=8,
+                    align="top_right",
+                    text="EDIT" if navigation == NavigationState.EDIT else "CONTROL",
+                    font="tiny",
+                    color="#777777FF",
+                ),
+            ],
+        )
 
     elements: list[types.DisplayElement] = [
         types.ImageElement(

@@ -1,4 +1,4 @@
-"""Three fixed-slot BUSY Canvas layouts for fast physical comparison."""
+"""One fixed-slot BUSY Canvas UI with progressively deeper screens."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from busylib import types
 
 from .icons import APPLICATION_NAME, asset_path
-from .models import BaseDemo, CapabilitiesDemo, DemoView, FocusDemo, GridDemo
+from .models import BaseDemo, DemoView, HomeFlowDemo
 
 ACCENT = "#63E6BE"
 MUTED = "#777777FF"
@@ -45,7 +45,7 @@ def _payload(
     """Fill stable slots so view changes never tear down BUSY Canvas."""
     elements: list[types.DisplayElement] = []
     for display, prefix, slots, count in (
-        (types.DisplayName.FRONT, "fi", front_images, 2),
+        (types.DisplayName.FRONT, "fi", front_images, 4),
         (types.DisplayName.BACK, "bi", back_images, 4),
     ):
         padded = slots + [ImageSlot()] * (count - len(slots))
@@ -91,79 +91,72 @@ def _payload(
     )
 
 
-def _front(demo: BaseDemo, mode: str) -> tuple[list[ImageSlot], list[TextSlot]]:
-    device = demo.device
-    return (
-        [ImageSlot(1, 1, device.kind, 14)],
-        [
-            TextSlot(17, 0, device.name, "tiny", ACCENT if device.on else MUTED, width=42),
-            TextSlot(17, 8, device.state_label, "small", WHITE),
-            TextSlot(71, 8, mode, "tiny", ACCENT, "top_right"),
-        ],
-    )
-
-
 def _level_bar(level: int, width: int = 18) -> str:
     filled = round(width * level / 100)
     return "=" * filled + "-" * (width - filled)
 
 
-def _grid(demo: GridDemo) -> types.DisplayElements:
-    front_images, front_text = _front(
-        demo, "LIST" if demo.view == DemoView.BROWSE else "DIM"
-    )
-    if demo.view == DemoView.BROWSE:
-        images = [
-            ImageSlot(3, 11 + index * 15, device.kind, 14)
-            for index, device in enumerate(demo.devices)
-        ]
-        text = [TextSlot(3, 1, f"DEVICES  {demo.selected + 1}/{len(demo.devices)}", "tiny", MUTED)]
-        for index, device in enumerate(demo.devices):
-            selected = index == demo.selected
-            text.append(
-                TextSlot(
-                    20,
-                    12 + index * 15,
-                    f"> {device.name}" if selected else f"  {device.name}",
-                    "small",
-                    ACCENT if selected else WHITE,
-                    width=91,
-                )
+def _accessories_screen(demo: HomeFlowDemo) -> types.DisplayElements:
+    """Show four accessories at once and enlarge the selected one."""
+    front_images = []
+    front_text = []
+    for index, device in enumerate(demo.devices[:4]):
+        selected = index == demo.selected
+        front_images.append(
+            ImageSlot(
+                index * 18 + (0 if selected else 2),
+                0 if selected else 2,
+                device.kind,
+                14 if selected else 10,
             )
-            text.append(
-                TextSlot(
-                    156,
-                    12 + index * 15,
-                    device.state_label,
-                    "tiny",
-                    ACCENT if device.on else MUTED,
-                    "top_right",
-                )
-            )
-        text.append(TextSlot(3, 72, "DIAL MOVE  OK OPEN  START POWER", "tiny", MUTED))
-        return _payload(
-            front_images=front_images,
-            back_images=images,
-            front_text=front_text,
-            back_text=text,
         )
-
-    device = demo.device
+        if selected:
+            front_text.append(TextSlot(index * 18 + 5, 10, "^", "tiny", ACCENT))
+    images = [
+        ImageSlot(3, 11 + index * 15, device.kind, 14)
+        for index, device in enumerate(demo.devices)
+    ]
+    text = [
+        TextSlot(
+            3,
+            1,
+            f"ACCESSORIES  {demo.selected + 1}/{len(demo.devices)}",
+            "tiny",
+            MUTED,
+        )
+    ]
+    for index, device in enumerate(demo.devices):
+        selected = index == demo.selected
+        text.append(
+            TextSlot(
+                20,
+                12 + index * 15,
+                f"> {device.name}" if selected else f"  {device.name}",
+                "small",
+                ACCENT if selected else WHITE,
+                width=91,
+            )
+        )
+        text.append(
+            TextSlot(
+                156,
+                12 + index * 15,
+                device.state_label,
+                "tiny",
+                ACCENT if device.on else MUTED,
+                "top_right",
+            )
+        )
+    text.append(TextSlot(3, 72, "DIAL MOVE  OK OPEN  START POWER", "tiny", MUTED))
     return _payload(
         front_images=front_images,
-        back_images=[ImageSlot(4, 13, device.kind, 56)],
+        back_images=images,
         front_text=front_text,
-        back_text=[
-            TextSlot(4, 2, f"DEVICE {demo.selected + 1}/{len(demo.devices)}", "tiny", MUTED),
-            TextSlot(66, 14, device.name, "normal", WHITE, width=88),
-            TextSlot(66, 37, device.state_label, "bold", ACCENT if device.on else MUTED),
-            TextSlot(66, 54, _level_bar(device.brightness), "tiny", WHITE),
-            TextSlot(4, 72, "DIAL DIM  START POWER  OK LIST", "tiny", MUTED),
-        ],
+        back_text=text,
     )
 
 
-def _property_value(demo: CapabilitiesDemo, name: str) -> str:
+def _property_value(demo: HomeFlowDemo, name: str) -> str:
     if name == "brightness":
         return f"{demo.device.brightness}%"
     if name == "color":
@@ -171,27 +164,34 @@ def _property_value(demo: CapabilitiesDemo, name: str) -> str:
     return f"{demo.device.kelvin}K"
 
 
-def _capabilities(demo: CapabilitiesDemo) -> types.DisplayElements:
-    mode = {
-        DemoView.BROWSE: "OPEN",
-        DemoView.PROPERTIES: "PICK",
-        DemoView.EDIT: "EDIT",
-    }[demo.view]
-    front_images, front_text = _front(demo, mode)
+def _controls_screen(demo: HomeFlowDemo) -> types.DisplayElements:
     device = demo.device
-    if demo.view == DemoView.BROWSE:
-        return _payload(
-            front_images=front_images,
-            back_images=[ImageSlot(5, 12, device.kind, 56)],
-            front_text=front_text,
-            back_text=[
-                TextSlot(68, 13, device.name, "normal", WHITE, width=86),
-                TextSlot(68, 36, device.state_label, "bold", ACCENT if device.on else MUTED),
-                TextSlot(68, 54, "3 CONTROLS", "small", DIM),
-                TextSlot(5, 72, "DIAL DEVICE  OK CONTROLS  START POWER", "tiny", MUTED),
-            ],
+    editing = demo.view == DemoView.EDIT
+    labels = ("DIM", "RGB", "TEMP")
+    front_images = [ImageSlot(0, 0, device.kind, 16)]
+    label_positions = (18, 35, 52)
+    front_text = [
+        TextSlot(
+            label_positions[index],
+            0,
+            label,
+            "tiny",
+            ACCENT if index == demo.property_index else DIM,
         )
+        for index, label in enumerate(labels)
+    ]
+    front_text.append(
+        TextSlot(
+            19,
+            8,
+            _property_value(demo, demo.property_name),
+            "small",
+            ACCENT if editing else WHITE,
+        )
+    )
     if demo.view == DemoView.PROPERTIES:
+        # A compact property picker: the three controls remain visible while
+        # the active one is bracketed, so the dial's destination is obvious.
         text = [
             TextSlot(42, 2, device.name, "small", WHITE, width=112),
             TextSlot(4, 72, "DIAL PICK  OK EDIT  START POWER", "tiny", MUTED),
@@ -229,11 +229,7 @@ def _capabilities(demo: CapabilitiesDemo) -> types.DisplayElements:
     return _payload(
         front_images=front_images,
         back_images=[ImageSlot(5, 17, device.kind, 32)],
-        front_text=[
-            front_text[0],
-            TextSlot(17, 8, f"{property_name[:4].upper()} {value}", "small", WHITE),
-            front_text[2],
-        ],
+        front_text=front_text,
         back_text=[
             TextSlot(42, 10, property_name.upper(), "small", MUTED),
             TextSlot(42, 27, value, "large", ACCENT),
@@ -251,39 +247,10 @@ def _capabilities(demo: CapabilitiesDemo) -> types.DisplayElements:
     )
 
 
-def _focus(demo: FocusDemo) -> types.DisplayElements:
-    front_images, front_text = _front(
-        demo, "FOCUS" if demo.view == DemoView.BROWSE else "DIM"
-    )
-    device = demo.device
-    position = "  ".join(
-        "[o]" if index == demo.selected else " o " for index in range(len(demo.devices))
-    )
-    hint = (
-        "DIAL NEXT  OK DIM  START POWER"
-        if demo.view == DemoView.BROWSE
-        else "DIAL DIM  OK DEVICES  START POWER"
-    )
-    return _payload(
-        front_images=front_images,
-        back_images=[ImageSlot(3, 11, device.kind, 56)],
-        front_text=front_text,
-        back_text=[
-            TextSlot(65, 10, device.name, "normal", WHITE, width=90),
-            TextSlot(65, 34, device.state_label, "bold", ACCENT if device.on else MUTED),
-            TextSlot(65, 51, _level_bar(device.brightness, 15), "tiny", WHITE),
-            TextSlot(65, 61, position, "tiny", MUTED),
-            TextSlot(3, 72, hint, "tiny", MUTED),
-        ],
-    )
-
-
 def render_demo(demo: BaseDemo) -> types.DisplayElements:
-    """Render one of the three UI studies."""
-    if isinstance(demo, GridDemo):
-        return _grid(demo)
-    if isinstance(demo, CapabilitiesDemo):
-        return _capabilities(demo)
-    if isinstance(demo, FocusDemo):
-        return _focus(demo)
-    raise TypeError(f"Unsupported demo type: {type(demo).__name__}")
+    """Render the current screen using one stable BUSY Canvas layout."""
+    if not isinstance(demo, HomeFlowDemo):
+        raise TypeError(f"Unsupported demo type: {type(demo).__name__}")
+    if demo.view == DemoView.BROWSE:
+        return _accessories_screen(demo)
+    return _controls_screen(demo)

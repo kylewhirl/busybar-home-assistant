@@ -12,26 +12,29 @@ The bar behaves like a tiny, physical Home Assistant app:
 1. Move the top mode selector to **Apps**. Home Assistant opens automatically.
 2. Turn the **dial** to browse your chosen accessories.
 3. Press the large **Start** button to toggle the highlighted accessory right
-   away, or press **Select** again to enter adjustment mode.
-4. Turn the **dial** to adjust it.
-5. Press **Start** to toggle or activate it from either view.
-6. Press **Select** again to return to the accessory list. Press **Back** to exit.
+   away, or press **Select** to open its combined control screen.
+4. Turn the **dial** to choose Brightness, RGB color, or Color temperature.
+5. Press **Select**, turn the **dial** to adjust the highlighted value, then
+   press **Select** again to finish editing.
+6. Press **Start** to toggle or activate the accessory from any screen. Press
+   **Back** to exit; press **Select** to reopen the accessory overview.
 
 Keep the physical selector on **Apps** while using Home Assistant. The BUSY
 firmware reserves the other selector positions for its built-in status and
 timer screens, which will otherwise reclaim the display. You can also press
 **Select** to reopen the dashboard after exiting it with Back.
 
-Both BUSY displays update throughout the flow. The front RGB matrix gives you
-an at-a-glance icon, state, and level; the rear OLED shows a larger device-type
-icon, friendly name, state, position in the list, and contextual control hints.
-The display also follows changes made elsewhere in Home Assistant.
+Both BUSY displays update throughout the flow. The front RGB matrix shows four
+accessories at once, then combines a large device icon with its available
+controls and live value. The rear OLED shows the friendly name, state, position
+in the list, and contextual control hints. The display also follows changes
+made elsewhere in Home Assistant.
 
 ## Accessory support
 
-| Home Assistant domain | Dial in control view | Start button |
+| Home Assistant domain | Combined controls | Start button |
 | --- | --- | --- |
-| `light` | Brightness | Toggle |
+| `light` | Brightness, RGB presets, color temperature when supported | Toggle |
 | `fan` | Percentage | Toggle |
 | `cover` | Position | Open / close |
 | `media_player` | Volume | Play / pause |
@@ -149,12 +152,10 @@ uv run ruff check .
 uv run pytest
 ```
 
-Three standalone fake-device interaction studies live in
-[`demos/busybar_ui`](demos/busybar_ui): a multi-device grid, a
-brightness/color/temperature editor, and a large-icon focus carousel. They talk
-directly to BUSY Bar and never use the Home Assistant API, which makes them a
-fast way to compare pixel layouts and input mappings before promoting one into
-the integration.
+A standalone fake-device interaction flow lives in
+[`demos/busybar_ui`](demos/busybar_ui). It mirrors the integration's
+multi-accessory overview and combined brightness/color/temperature screen,
+talks directly to BUSY Bar, and never uses the Home Assistant API.
 
 For visual testing, run the community
 [BUSY Bar emulator](https://github.com/maxswinkels/busybar-emulator) and point

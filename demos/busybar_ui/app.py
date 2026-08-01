@@ -1,4 +1,4 @@
-"""Run one fake-device UI study directly against BUSY Bar."""
+"""Run the fake-device Home Assistant UI flow directly against BUSY Bar."""
 
 from __future__ import annotations
 
@@ -12,37 +12,17 @@ from busylib import AsyncBusyBar
 
 from .icons import APPLICATION_NAME, upload_demo_assets
 from .layouts import render_demo
-from .models import (
-    BaseDemo,
-    CapabilitiesDemo,
-    DemoView,
-    FocusDemo,
-    GridDemo,
-    parse_input_updates,
-)
+from .models import DemoView, HomeFlowDemo, parse_input_updates
 
 
-def _demo(name: str, initial_view: str | None = None) -> BaseDemo:
-    demo = {
-        "grid": GridDemo,
-        "capabilities": CapabilitiesDemo,
-        "focus": FocusDemo,
-    }[name]()
-    allowed = {
-        "grid": {DemoView.BROWSE, DemoView.CONTROL},
-        "capabilities": {DemoView.BROWSE, DemoView.PROPERTIES, DemoView.EDIT},
-        "focus": {DemoView.BROWSE, DemoView.CONTROL},
-    }[name]
+def _demo(initial_view: str | None = None) -> HomeFlowDemo:
+    demo = HomeFlowDemo()
     if initial_view:
-        requested = DemoView(initial_view)
-        if requested not in allowed:
-            raise ValueError(f"{name!r} does not support the {initial_view!r} view")
-        demo.view = requested
+        demo.view = DemoView(initial_view)
     return demo
 
 
 async def run_demo(
-    name: str,
     host: str,
     token: str,
     initial_view: str | None = None,
@@ -51,7 +31,7 @@ async def run_demo(
 ) -> None:
     """Own Canvas until Back or Ctrl-C; fake state stays entirely local."""
     client = AsyncBusyBar(host, token=token)
-    demo = _demo(name, initial_view)
+    demo = _demo(initial_view)
     dirty = asyncio.Event()
     stopped = asyncio.Event()
 
@@ -68,7 +48,7 @@ async def run_demo(
         await client.display_clear()
         dirty.set()
         renderer = asyncio.create_task(render_loop(), name="BUSY UI demo renderer")
-        print(f"Running {name!r}. Dial/Select/Start are live; Back exits.")
+        print("Running Home UI flow. Dial/Select/Start are live; Back exits.")
         async for message in client.stream_status_ws():
             if not isinstance(message, dict):
                 continue
@@ -93,10 +73,9 @@ async def run_demo(
 
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
-    result.add_argument("--demo", choices=("grid", "capabilities", "focus"), required=True)
     result.add_argument(
         "--view",
-        choices=("browse", "control", "properties", "edit"),
+        choices=("browse", "properties", "edit"),
         help="Open directly to a view for visual development without sending device input.",
     )
     result.add_argument("--host", default=os.environ.get("BUSY_BAR_ADDR"))
@@ -116,7 +95,6 @@ def main(argv: Sequence[str] | None = None) -> None:
     try:
         asyncio.run(
             run_demo(
-                args.demo,
                 args.host,
                 args.token,
                 args.view,
