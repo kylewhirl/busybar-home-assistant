@@ -5,12 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 import voluptuous as vol
-from busylib import AsyncBusyBar
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 
+from .client import async_create_client
 from .const import CONF_ACCESS_KEY, DOMAIN, PLATFORMS
 from .controller import BusyBarController
 from .coordinator import BusyBarCoordinator
@@ -80,7 +80,9 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: BusyBarConfigEntry) -> bool:
     """Set up BUSY Bar from a config entry."""
-    client = AsyncBusyBar(entry.data[CONF_HOST], token=entry.data[CONF_ACCESS_KEY])
+    client = await async_create_client(
+        hass, entry.data[CONF_HOST], entry.data[CONF_ACCESS_KEY]
+    )
     coordinator = BusyBarCoordinator(hass, client)
     await coordinator.async_config_entry_first_refresh()
 

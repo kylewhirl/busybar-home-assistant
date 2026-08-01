@@ -6,12 +6,14 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-from busylib import AsyncBusyBar, exceptions
+from busylib import exceptions
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST
+from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
+from .client import async_create_client
 from .const import (
     CONF_ACCENT_COLOR,
     CONF_ACCESS_KEY,
@@ -28,9 +30,9 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
-async def _validate_input(data: dict[str, Any]) -> tuple[str, str]:
+async def _validate_input(hass: HomeAssistant, data: dict[str, Any]) -> tuple[str, str]:
     """Connect and return the device serial and title."""
-    client = AsyncBusyBar(data[CONF_HOST], token=data[CONF_ACCESS_KEY])
+    client = await async_create_client(hass, data[CONF_HOST], data[CONF_ACCESS_KEY])
     try:
         status = await client.status()
     finally:
@@ -51,7 +53,7 @@ class BusyBarConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             try:
-                serial, title = await _validate_input(user_input)
+                serial, title = await _validate_input(self.hass, user_input)
             except exceptions.BusyBarAPIError as err:
                 if err.status_code in (401, 403):
                     errors["base"] = "invalid_auth"

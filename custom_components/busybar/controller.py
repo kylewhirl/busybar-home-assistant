@@ -8,7 +8,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-from busylib import AsyncBusyBar, exceptions
+from busylib import AsyncBusyBar, exceptions, types
 from homeassistant.const import ATTR_ENTITY_ID, STATE_CLOSED, STATE_OFF, STATE_ON
 from homeassistant.core import Event, HomeAssistant, State, callback
 from homeassistant.helpers.event import async_track_state_change_event
@@ -294,7 +294,18 @@ class BusyBarController:
         entity_id = self.selected_entity_id
         state = self.hass.states.get(entity_id) if entity_id else None
         if state is None:
-            await self.async_show_message("Choose accessories in BUSY Bar options", duration=2)
+            payload = build_message_payload(
+                "Choose accessories in BUSY Bar options",
+                _color_to_hex(
+                    self.entry.options.get(CONF_ACCENT_COLOR, DEFAULT_ACCENT_COLOR)
+                ),
+                int(
+                    self.entry.options.get(
+                        CONF_DISPLAY_PRIORITY, DEFAULT_DISPLAY_PRIORITY
+                    )
+                ),
+            )
+            await self._async_draw(payload)
             return
 
         payload = build_dashboard_payload(
@@ -309,9 +320,20 @@ class BusyBarController:
             position=(self.selected_index + 1, len(self.entities)),
             level=_level_for_state(state),
         )
+        await self._async_draw(payload)
+
+    async def _async_draw(self, payload: types.DisplayElements) -> bool:
+        """Draw while treating another app's higher priority as normal."""
         async with self._draw_lock:
             await self.client.display_clear(application_name=APPLICATION_NAME)
-            await self.client.display_draw(payload, sanitize_text=True)
+            try:
+                await self.client.display_draw(payload, sanitize_text=True)
+            except exceptions.BusyBarAPIError as err:
+                if err.status_code == 409:
+                    _LOGGER.debug("Another BUSY app currently owns the display")
+                    return False
+                raise
+        return True
 
     async def async_show_message(
         self, text: str, color: str | None = None, duration: float = 3
@@ -320,6 +342,7 @@ class BusyBarController:
         current_task = asyncio.current_task()
         if self._message_task and self._message_task is not current_task:
             self._message_task.cancel()
+            self._message_task = None
         payload = build_message_payload(
             text,
             _color_to_hex(color)
@@ -327,9 +350,8 @@ class BusyBarController:
             else _color_to_hex(self.entry.options.get(CONF_ACCENT_COLOR, DEFAULT_ACCENT_COLOR)),
             int(self.entry.options.get(CONF_DISPLAY_PRIORITY, DEFAULT_DISPLAY_PRIORITY)),
         )
-        async with self._draw_lock:
-            await self.client.display_clear(application_name=APPLICATION_NAME)
-            await self.client.display_draw(payload, sanitize_text=True)
+        if not await self._async_draw(payload):
+            return
 
         async def restore() -> None:
             try:
@@ -339,7 +361,8 @@ class BusyBarController:
                 else:
                     await self.client.display_clear(application_name=APPLICATION_NAME)
             finally:
-                self._message_task = None
+                if self._message_task is asyncio.current_task():
+                    self._message_task = None
 
         self._message_task = self.hass.async_create_task(restore(), "busybar message timeout")
 

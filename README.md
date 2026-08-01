@@ -65,6 +65,29 @@ Use a DHCP reservation so the BUSY Bar keeps the same local IP. The access key
 is stored in the Home Assistant config entry and is never sent to this project
 or a cloud service.
 
+## Choose what appears on the bar
+
+The BUSY Bar does not automatically include every entity in Home Assistant.
+You explicitly choose a short, useful list:
+
+1. Open **Settings → Devices & services** in Home Assistant.
+2. Find **BUSY Bar** and choose **Configure**.
+3. In **Accessories**, add the entities you want to control.
+4. Arrange them in the order you want to encounter while turning the dial.
+5. Submit the form. The integration reloads and uploads only the device icons
+   needed for that list.
+
+The picker includes supported `light`, `switch`, `fan`, `cover`,
+`media_player`, `climate`, `lock`, `scene`, `script`, `button`, `number`,
+`input_number`, and `input_boolean` entities. Prefer room-level groups and the
+few individual devices you adjust often; a list of roughly 5–10 accessories is
+much nicer on a dial than every bulb in the house.
+
+That same Configure dialog also controls the RGB accent color, the amount each
+dial detent changes a value, and the display priority used when other BUSY apps
+are active. To remove an accessory, reopen Configure, remove it from the
+Accessories field, and submit again.
+
 ## Home Assistant entities
 
 The integration creates:
@@ -114,6 +137,14 @@ uv sync --dev
 uv run ruff check .
 uv run pytest
 ```
+
+For visual testing, run the community
+[BUSY Bar emulator](https://github.com/maxswinkels/busybar-emulator) and point
+a development client at `127.0.0.1:8080`. The emulator validates the real
+72×16 front-display payload, uploaded icons, text scrolling, priorities, and
+clearing behavior. Input-stream behavior and the rear OLED are covered by unit
+tests and should be smoke-tested on hardware because the current emulator does
+not implement the BUSY protobuf status WebSocket or render the rear display.
 
 The repository runs Ruff, tests, Hassfest, and HACS validation in GitHub
 Actions. This project is not affiliated with Home Assistant or Flipper Devices.
