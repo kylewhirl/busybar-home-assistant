@@ -165,7 +165,11 @@ class BusyBarController:
             self._remove_state_listener = async_track_state_change_event(
                 self.hass, self.entities, self._async_state_changed
             )
-        self._stream_task = self.hass.async_create_task(self._stream_loop(), "busybar input stream")
+        self._stream_task = self.entry.async_create_background_task(
+            hass=self.hass,
+            target=self._stream_loop(),
+            name="busybar input stream",
+        )
 
     async def async_stop(self) -> None:
         """Stop background work and remove this app's pixels."""
@@ -218,8 +222,17 @@ class BusyBarController:
             elif event_type == "encoder":
                 await self._async_handle_encoder(value)
             elif event_type == "switch":
-                self.switch_position = value
-                self._notify()
+                await self._async_handle_switch(value)
+
+    async def _async_handle_switch(self, position: str) -> None:
+        """Follow the physical mode selector so built-in apps do not compete."""
+        self.switch_position = position
+        self._notify()
+        if position == "apps":
+            if not self.active:
+                await self.async_open(request_apps_mode=False)
+        elif self.active:
+            await self.async_close()
 
     async def _async_handle_button(self, button: str) -> None:
         next_navigation, should_activate = button_transition(
@@ -245,10 +258,15 @@ class BusyBarController:
         elif self.navigation == NavigationState.CONTROL:
             await self._async_adjust_selected(delta)
 
-    async def async_open(self) -> None:
+    async def async_open(self, *, request_apps_mode: bool = True) -> None:
         """Enter the accessory browser."""
         self.navigation = NavigationState.BROWSE
         self._notify()
+        if request_apps_mode:
+            try:
+                await self.client.input(types.InputKey.APPS)
+            except exceptions.BusyBarError as err:
+                _LOGGER.warning("Could not switch BUSY Bar to Apps mode: %s", err)
         self.async_schedule_render()
 
     async def async_close(self) -> None:

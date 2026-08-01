@@ -67,6 +67,12 @@ def test_requested_navigation_flow() -> None:
     assert (navigation, activate) == (NavigationState.INACTIVE, False)
 
 
+def test_start_toggles_highlighted_accessory_without_entering_control() -> None:
+    navigation, activate = button_transition(NavigationState.BROWSE, "start", True)
+
+    assert (navigation, activate) == (NavigationState.BROWSE, True)
+
+
 @pytest.mark.parametrize("domain", ["light", "fan", "cover", "switch", "climate"])
 def test_dashboard_payload_draws_both_displays(domain: str) -> None:
     payload = build_dashboard_payload(
@@ -100,3 +106,21 @@ def test_level_bars_stay_on_screen() -> None:
     elements = {element.id: element for element in payload.elements}
     assert len(elements["front_level"].text) == 9
     assert len(elements["back_level"].text) == 24
+
+
+def test_front_display_makes_control_mode_visible_and_scrolls_quickly() -> None:
+    payload = build_dashboard_payload(
+        domain="light",
+        name="Studio Studio Light",
+        state_label="on",
+        navigation=NavigationState.BROWSE,
+        accent_color="#63E6BE",
+        priority=95,
+        position=(1, 2),
+        level=10,
+    )
+    elements = {element.id: element for element in payload.elements}
+
+    assert elements["front_name"].scroll_rate >= 60
+    assert elements["front_name"].scroll_start_delay <= 300
+    assert elements["front_mode"].text == "SELECT"

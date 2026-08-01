@@ -29,7 +29,7 @@
           "entities": "Accessories",
           "accent_color": "Accent color",
           "dial_step": "Dial step (%)",
-          "display_priority": "Display priority (95 recommended)"
+          "display_priority": "Display priority (100 recommended)"
         }
       }
     }

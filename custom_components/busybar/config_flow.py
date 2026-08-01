@@ -45,7 +45,7 @@ async def _validate_input(hass: HomeAssistant, data: dict[str, Any]) -> tuple[st
 class BusyBarConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for BUSY Bar."""
 
-    VERSION = 1
+    VERSION = 2
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle the initial step."""

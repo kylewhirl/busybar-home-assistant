@@ -11,7 +11,14 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 
 from .client import async_create_client
-from .const import CONF_ACCESS_KEY, DOMAIN, PLATFORMS
+from .const import (
+    CONF_ACCESS_KEY,
+    CONF_DISPLAY_PRIORITY,
+    DEFAULT_DISPLAY_PRIORITY,
+    DOMAIN,
+    LEGACY_DEFAULT_DISPLAY_PRIORITY,
+    PLATFORMS,
+)
 from .controller import BusyBarController
 from .coordinator import BusyBarCoordinator
 from .models import BusyBarConfigEntry, BusyBarRuntime
@@ -94,6 +101,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: BusyBarConfigEntry) -> b
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await controller.async_start()
+    return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate defaults that were unsafe on physical BUSY firmware."""
+    if entry.version == 1:
+        options = dict(entry.options)
+        if options.get(CONF_DISPLAY_PRIORITY) == LEGACY_DEFAULT_DISPLAY_PRIORITY:
+            options[CONF_DISPLAY_PRIORITY] = DEFAULT_DISPLAY_PRIORITY
+        hass.config_entries.async_update_entry(entry, version=2, options=options)
     return True
 
 

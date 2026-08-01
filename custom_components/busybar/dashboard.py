@@ -32,7 +32,11 @@ def button_transition(
             return NavigationState.BROWSE, False
         if navigation == NavigationState.BROWSE:
             return NavigationState.INACTIVE, False
-    elif button == "start" and navigation == NavigationState.CONTROL:
+    elif (
+        button == "start"
+        and navigation in (NavigationState.BROWSE, NavigationState.CONTROL)
+        and has_accessory
+    ):
         return navigation, True
     return navigation, False
 
@@ -125,9 +129,9 @@ def build_dashboard_payload(
             text=name,
             font="tiny",
             color=front_text_color,
-            scroll_rate=25,
-            scroll_start_delay=800,
-            scroll_repeat_delay=500,
+            scroll_rate=70,
+            scroll_start_delay=200,
+            scroll_repeat_delay=250,
         ),
         types.TextElement(
             id="front_state",
@@ -137,6 +141,16 @@ def build_dashboard_payload(
             text=f"{state_label}{f' {level}%' if level is not None else ''}",
             font="small",
             color="#FFFFFFFF",
+        ),
+        types.TextElement(
+            id="front_mode",
+            display=types.DisplayName.FRONT,
+            x=70,
+            y=8,
+            align="top_right",
+            text="SELECT" if navigation == NavigationState.BROWSE else "ADJUST",
+            font="tiny",
+            color=accent_color,
         ),
         types.TextElement(
             id="back_kicker",
@@ -156,9 +170,9 @@ def build_dashboard_payload(
             text=name,
             font="normal",
             color="#FFFFFFFF",
-            scroll_rate=30,
-            scroll_start_delay=1000,
-            scroll_repeat_delay=800,
+            scroll_rate=55,
+            scroll_start_delay=300,
+            scroll_repeat_delay=350,
         ),
         types.TextElement(
             id="back_state",
@@ -175,7 +189,7 @@ def build_dashboard_payload(
             x=8,
             y=68,
             text=(
-                "DIAL: BROWSE   SELECT: OPEN"
+                "DIAL: BROWSE   SELECT: ADJUST   START: TOGGLE"
                 if navigation == NavigationState.BROWSE
                 else "DIAL: ADJUST   START: TOGGLE   BACK: LIST"
             ),

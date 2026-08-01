@@ -6,11 +6,12 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-from busylib import exceptions
+from busylib import exceptions, types
 from homeassistant.core import State
 
 from custom_components.busybar.const import CONF_DIAL_STEP, CONF_ENTITIES
 from custom_components.busybar.controller import BusyBarController, _level_for_state
+from custom_components.busybar.dashboard import NavigationState
 
 
 class FakeStates:
@@ -204,3 +205,43 @@ async def test_higher_priority_app_is_not_treated_as_a_controller_failure() -> N
         application_name="home_assistant"
     )
     controller.client.display_draw.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_open_switches_physical_bar_to_apps_mode() -> None:
+    state = State("light.one", "on", {"brightness": 128})
+    controller, _ = controller_for(state)
+    controller.async_schedule_render = lambda: None
+
+    await controller.async_open()
+
+    controller.client.input.assert_awaited_once_with(types.InputKey.APPS)
+    assert controller.navigation.value == "browse"
+
+
+@pytest.mark.asyncio
+async def test_physical_apps_position_opens_without_replaying_switch_input() -> None:
+    state = State("light.one", "on", {"brightness": 128})
+    controller, _ = controller_for(state)
+    controller.async_schedule_render = lambda: None
+
+    await controller._async_handle_switch("apps")
+
+    assert controller.switch_position == "apps"
+    assert controller.navigation.value == "browse"
+    controller.client.input.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_leaving_physical_apps_position_closes_dashboard() -> None:
+    state = State("light.one", "on", {"brightness": 128})
+    controller, _ = controller_for(state)
+    controller.navigation = NavigationState.CONTROL
+
+    await controller._async_handle_switch("busy")
+
+    assert controller.switch_position == "busy"
+    assert controller.navigation.value == "inactive"
+    controller.client.display_clear.assert_awaited_once_with(
+        application_name="home_assistant"
+    )

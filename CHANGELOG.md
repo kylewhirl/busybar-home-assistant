@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.2
+
+- Follow the physical BUSY Bar mode selector: Apps opens Home Assistant
+  automatically, while leaving Apps closes it so built-in screens cannot
+  compete for the display.
+- Raise the hardware-safe default display priority from 95 to 100 and migrate
+  existing entries that still use the old default.
+- Let Start toggle the highlighted accessory directly from browse mode; Select
+  still enters adjustment mode for dial-based brightness and level control.
+- Make `SELECT` / `ADJUST` visible on the front display and speed long-name
+  scrolling from 25 to 70 pixels per second with a shorter startup delay.
+- Register the input WebSocket as a Home Assistant background task so it no
+  longer delays startup.
+
 ## 0.1.1
 
 - Use the supplied BUSY / Home Assistant artwork as transparent local HACS

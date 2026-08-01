@@ -9,12 +9,18 @@ directly to the bar's HTTP and WebSocket APIs through the official
 
 The bar behaves like a tiny, physical Home Assistant app:
 
-1. Press **Select** (`OK`) to enter Home Assistant.
+1. Move the top mode selector to **Apps**. Home Assistant opens automatically.
 2. Turn the **dial** to browse your chosen accessories.
-3. Press **Select** again to open an accessory.
+3. Press the large **Start** button to toggle the highlighted accessory right
+   away, or press **Select** again to enter adjustment mode.
 4. Turn the **dial** to adjust it.
-5. Press the large **Start** button to toggle or activate it.
+5. Press **Start** to toggle or activate it from either view.
 6. Press **Back** to return to the accessory list, then Back again to exit.
+
+Keep the physical selector on **Apps** while using Home Assistant. The BUSY
+firmware reserves the other selector positions for its built-in status and
+timer screens, which will otherwise reclaim the display. You can also press
+**Select** to reopen the dashboard after exiting it with Back.
 
 Both BUSY displays update throughout the flow. The front RGB matrix gives you
 an at-a-glance icon, state, and level; the rear OLED shows a larger device-type
@@ -85,7 +91,9 @@ much nicer on a dial than every bulb in the house.
 
 That same Configure dialog also controls the RGB accent color, the amount each
 dial detent changes a value, and the display priority used when other BUSY apps
-are active. To remove an accessory, reopen Configure, remove it from the
+are active. Priority 100 is recommended on physical hardware so the built-in
+status screen does not immediately reclaim the display. To remove an accessory,
+reopen Configure, remove it from the
 Accessories field, and submit again.
 
 ## Home Assistant entities
