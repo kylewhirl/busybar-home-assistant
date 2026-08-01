@@ -216,6 +216,7 @@ async def test_open_switches_physical_bar_to_apps_mode() -> None:
     await controller.async_open()
 
     controller.client.input.assert_awaited_once_with(types.InputKey.APPS)
+    controller.client.display_clear.assert_awaited_once_with()
     assert controller.navigation.value == "browse"
 
 
@@ -230,6 +231,7 @@ async def test_physical_apps_position_opens_without_replaying_switch_input() -> 
     assert controller.switch_position == "apps"
     assert controller.navigation.value == "browse"
     controller.client.input.assert_not_awaited()
+    controller.client.display_clear.assert_awaited_once_with()
 
 
 @pytest.mark.asyncio

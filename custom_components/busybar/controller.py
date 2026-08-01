@@ -267,6 +267,9 @@ class BusyBarController:
                 await self.client.input(types.InputKey.APPS)
             except exceptions.BusyBarError as err:
                 _LOGGER.warning("Could not switch BUSY Bar to Apps mode: %s", err)
+        # Opening Home Assistant is an explicit takeover. A namespace-scoped
+        # clear cannot displace an already-running app at equal priority.
+        await self.client.display_clear()
         self.async_schedule_render()
 
     async def async_close(self) -> None:

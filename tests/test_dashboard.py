@@ -39,6 +39,7 @@ def test_parse_input_updates() -> None:
             {"input": {"button_event": {"button": "OK", "action": "PRESS"}}},
             {"input": {"encoder_event": {"delta": -2}}},
             {"input": {"switch_event": {"position": "APPS"}}},
+            {"input": {"button_event": {"button": "START"}}},
             {"input": {"button_event": {"button": "START", "action": "RELEASE"}}},
         ]
     }
@@ -47,6 +48,7 @@ def test_parse_input_updates() -> None:
         ("button", "ok"),
         ("encoder", -2),
         ("switch", "apps"),
+        ("button", "start"),
     ]
 
 

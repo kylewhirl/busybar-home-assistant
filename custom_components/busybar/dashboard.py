@@ -69,7 +69,8 @@ def parse_input_updates(message: dict[str, Any]) -> list[tuple[str, Any]]:
     for update in message.get("updates", []):
         input_update = update.get("input", {})
         if button := input_update.get("button_event"):
-            if str(button.get("action", "")).lower() == "press":
+            action = str(button.get("action", "")).lower()
+            if action in ("", "press"):
                 events.append(("button", str(button.get("button", "")).lower()))
         if encoder := input_update.get("encoder_event"):
             delta = int(encoder.get("delta", 0))

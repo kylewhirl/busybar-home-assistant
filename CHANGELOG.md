@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3
+
+- Accept the button-event shape emitted by physical BUSY firmware, where a
+  press omits the optional `action` field. This restores Select and Start.
+- Explicitly take over the displays when Home Assistant opens so an app such
+  as Spotify cannot leave the dashboard active but invisible.
+
 ## 0.1.2
 
 - Follow the physical BUSY Bar mode selector: Apps opens Home Assistant

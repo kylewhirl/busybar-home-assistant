@@ -27,6 +27,8 @@ SERVICE_SHOW_MESSAGE = "show_message"
 SERVICE_CLEAR_DISPLAY = "clear_display"
 SERVICE_REFRESH_DASHBOARD = "refresh_dashboard"
 
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
 
 def _service_entries(hass: HomeAssistant, entry_id: str | None) -> list[BusyBarConfigEntry]:
     entries = [
