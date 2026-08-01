@@ -111,6 +111,7 @@ class BusyBarController:
         self._listeners: set[Callable[[], None]] = set()
         self._stream_task: asyncio.Task[None] | None = None
         self._render_task: asyncio.Task[None] | None = None
+        self._render_pending = False
         self._message_task: asyncio.Task[None] | None = None
         self._remove_state_listener: Callable[[], None] | None = None
         self._draw_lock = asyncio.Lock()
@@ -178,6 +179,7 @@ class BusyBarController:
 
     async def async_stop(self) -> None:
         """Stop background work and remove this app's pixels."""
+        self._render_pending = False
         if self._remove_state_listener:
             self._remove_state_listener()
             self._remove_state_listener = None
@@ -284,6 +286,7 @@ class BusyBarController:
         if self._render_task:
             self._render_task.cancel()
             self._render_task = None
+        self._render_pending = False
         await self.client.display_clear(application_name=APPLICATION_NAME)
 
     async def async_select_relative(self, delta: int) -> None:
@@ -320,17 +323,20 @@ class BusyBarController:
         """Coalesce state bursts into one display update."""
         if not self.active or self._message_task:
             return
+        self._render_pending = True
         if self._render_task and not self._render_task.done():
             # Never restart the timer for every encoder tick. A fixed-rate
-            # redraw keeps moving values visible while the dial is still moving.
+            # redraw loop will pick up the newest value after the active draw.
             return
         self._render_task = self.hass.async_create_task(
             self._async_render_after_delay(), "busybar dashboard render"
         )
 
     async def _async_render_after_delay(self) -> None:
-        await asyncio.sleep(RENDER_INTERVAL_SECONDS)
-        await self.async_render()
+        while self._render_pending and self.active and not self._message_task:
+            self._render_pending = False
+            await asyncio.sleep(RENDER_INTERVAL_SECONDS)
+            await self.async_render()
 
     async def async_render(self) -> None:
         """Draw the current dashboard state on both displays."""

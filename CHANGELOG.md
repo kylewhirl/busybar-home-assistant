@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.8
+
+- Guarantee a trailing display frame when more dial events arrive during an
+  in-flight BUSY draw, so the percentage cannot linger on an intermediate
+  brightness after a rapid turn.
+
 ## 0.1.7
 
 - Show dial changes optimistically and redraw at a fixed 25 FPS ceiling, so the

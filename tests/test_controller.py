@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from busylib import exceptions, types
@@ -176,6 +176,7 @@ async def test_rapid_light_dial_events_accumulate_without_waiting_for_ha_state()
 def test_pending_render_is_not_postponed_by_more_encoder_events() -> None:
     state = State("light.desk", "on", {"brightness": 128})
     controller, _ = controller_for(state)
+    controller.navigation = NavigationState.CONTROL
     pending = MagicMock()
     pending.done.return_value = False
     controller._render_task = pending
@@ -184,6 +185,30 @@ def test_pending_render_is_not_postponed_by_more_encoder_events() -> None:
 
     pending.cancel.assert_not_called()
     assert controller._render_task is pending
+    assert controller._render_pending is True
+
+
+@pytest.mark.asyncio
+async def test_render_loop_draws_trailing_value_changed_during_active_draw() -> None:
+    state = State("light.desk", "on", {"brightness": 128})
+    controller, _ = controller_for(state)
+    controller.navigation = NavigationState.CONTROL
+    controller._render_pending = True
+    render_count = 0
+
+    async def render_with_new_dial_tick() -> None:
+        nonlocal render_count
+        render_count += 1
+        if render_count == 1:
+            controller._render_pending = True
+
+    controller.async_render = render_with_new_dial_tick
+    with patch(
+        "custom_components.busybar.controller.asyncio.sleep", new=AsyncMock()
+    ):
+        await controller._async_render_after_delay()
+
+    assert render_count == 2
 
 
 def test_optimistic_level_clears_when_ha_reports_the_same_value() -> None:
