@@ -8,9 +8,9 @@
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/kylewhirl/busybar-home-assistant/issues",
   "requirements": [
-    "CairoSVG==2.9.0",
     "busylib==1.0.0",
-    "material-design-icons-pack==7.4.47"
+    "material-design-icons-pack==7.4.47",
+    "resvg_py==0.3.3"
   ],
-  "version": "0.2.2"
+  "version": "0.2.3"
 }

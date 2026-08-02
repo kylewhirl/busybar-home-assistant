@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.3
+
+- Use the self-contained resvg renderer for MDI assets so Home Assistant OS
+  does not require the native system Cairo library.
+
 ## 0.2.2
 
 - Replace hand-drawn and inferred fixture symbols with each entity's actual

@@ -8,7 +8,7 @@ import io
 import re
 from typing import Any
 
-import cairosvg
+import resvg_py
 from busylib import AsyncBusyBar, types
 from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers import entity_registry as er
@@ -126,11 +126,7 @@ def icon_png(icon_name: str, size: int, color: str) -> bytes:
         icon = get_icon("help-circle")
     assert icon is not None
     svg = icon.svg.replace("<path ", f'<path fill="{color[:7]}" ')
-    return cairosvg.svg2png(
-        bytestring=svg.encode(),
-        output_width=size,
-        output_height=size,
-    )
+    return resvg_py.svg_to_bytes(svg_string=svg, width=size, height=size)
 
 
 async def async_upload_icons(

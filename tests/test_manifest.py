@@ -15,9 +15,9 @@ def test_manifest_is_hacs_ready() -> None:
     assert manifest["iot_class"] == "local_push"
     assert manifest["version"]
     assert manifest["requirements"] == [
-        "CairoSVG==2.9.0",
         "busylib==1.0.0",
         "material-design-icons-pack==7.4.47",
+        "resvg_py==0.3.3",
     ]
 
 
