@@ -136,7 +136,7 @@ def test_dashboard_payload_draws_both_displays(domain: str) -> None:
     assert len({element.id for element in payload.elements}) == len(payload.elements)
 
 
-def test_light_control_screen_combines_large_icon_tabs_and_value() -> None:
+def test_light_control_screen_focuses_one_value_without_cramming_tabs() -> None:
     payload = build_dashboard_payload(
         domain="light",
         name="Desk Lamp",
@@ -156,11 +156,12 @@ def test_light_control_screen_combines_large_icon_tabs_and_value() -> None:
     )
     elements = {element.id: element for element in payload.elements}
 
-    assert elements["front_image_0"].path == "ha_front_control_light.png"
-    assert elements["front_text_0"].text == "DIM"
-    assert elements["front_text_1"].text == "RGB"
-    assert elements["front_text_2"].text == "TEMP"
-    assert elements["front_text_3"].text == "72%"
+    assert elements["front_image_0"].path == "ha_front_active_light.png"
+    assert (elements["front_image_0"].x, elements["front_image_0"].y) == (1, 1)
+    assert elements["front_text_0"].text == "BRIGHT"
+    assert elements["front_text_1"].text == "72%"
+    assert elements["front_text_2"].text == "1/3"
+    assert elements["front_text_3"].text == ""
 
 
 def test_browse_screen_shows_four_accessories_and_highlights_one() -> None:
@@ -182,6 +183,15 @@ def test_browse_screen_shows_four_accessories_and_highlights_one() -> None:
     assert elements["front_image_1"].path == "ha_front_active_fan.png"
     assert elements["front_image_2"].path == "ha_front_inactive_light.png"
     assert elements["front_image_3"].path == "ha_front_inactive_switch.png"
+    assert [
+        (elements[f"front_image_{index}"].x, elements[f"front_image_{index}"].y)
+        for index in range(4)
+    ] == [
+        (2, 1),
+        (20, 1),
+        (38, 1),
+        (56, 1),
+    ]
 
 
 def test_nonadjustable_accessory_still_gets_combined_power_screen() -> None:
@@ -197,9 +207,10 @@ def test_nonadjustable_accessory_still_gets_combined_power_screen() -> None:
     )
     elements = {element.id: element for element in payload.elements}
 
-    assert elements["front_image_0"].path == "ha_front_control_switch.png"
+    assert elements["front_image_0"].path == "ha_front_inactive_switch.png"
     assert elements["front_text_0"].text == "POWER"
-    assert elements["front_text_3"].text == "OFF"
+    assert elements["front_text_1"].text == "OFF"
+    assert elements["front_text_2"].text == ""
 
 
 def test_level_value_stays_on_combined_control_screen() -> None:
@@ -217,8 +228,29 @@ def test_level_value_stays_on_combined_control_screen() -> None:
         control_value="100%",
     )
     elements = {element.id: element for element in payload.elements}
-    assert elements["front_text_3"].text == "100%"
+    assert elements["front_text_1"].text == "100%"
     assert elements["back_state"].text == "DIM  ·  100%"
+
+
+def test_editing_state_is_visible_without_competing_with_the_value() -> None:
+    payload = build_dashboard_payload(
+        domain="light",
+        name="Kitchen",
+        state_label="on",
+        navigation=NavigationState.EDIT,
+        accent_color="#63E6BE",
+        priority=100,
+        position=(1, 3),
+        controls=(ControlKind.BRIGHTNESS, ControlKind.COLOR, ControlKind.TEMPERATURE),
+        selected_control=ControlKind.COLOR,
+        control_value="MINT",
+    )
+    elements = {element.id: element for element in payload.elements}
+
+    assert elements["front_text_0"].text == "COLOR"
+    assert elements["front_text_1"].text == "MINT"
+    assert elements["front_text_2"].text == "2/3"
+    assert elements["front_text_3"].text == "EDIT"
 
 
 def test_front_display_makes_control_mode_visible_and_scrolls_quickly() -> None:

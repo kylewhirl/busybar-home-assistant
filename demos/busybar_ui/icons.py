@@ -14,8 +14,9 @@ ICON_SIZES = (10, 14, 16, 32, 56)
 FRONT_ACCENT = "#63E6BE"
 
 
-def asset_path(kind: str, size: int) -> str:
-    return f"demo_{kind}_{size}.png"
+def asset_path(kind: str, size: int, variant: str | None = None) -> str:
+    suffix = f"_{variant}" if variant else ""
+    return f"demo_{kind}_{size}{suffix}.png"
 
 
 def _scaled_icon(kind: str, size: int, color: str) -> bytes:
@@ -113,15 +114,9 @@ def _scaled_icon(kind: str, size: int, color: str) -> bytes:
     else:
         body = (int(side * 0.22), int(side * 0.30), int(side * 0.78), int(side * 0.76))
         draw.rounded_rectangle(body, radius=stroke, fill=rgba)
-        draw.rectangle(
-            (int(side * 0.34), margin, int(side * 0.43), int(side * 0.34)), fill=rgba
-        )
-        draw.rectangle(
-            (int(side * 0.57), margin, int(side * 0.66), int(side * 0.34)), fill=rgba
-        )
-        draw.line(
-            (center, int(side * 0.72), center, side - margin), fill=rgba, width=stroke
-        )
+        draw.rectangle((int(side * 0.34), margin, int(side * 0.43), int(side * 0.34)), fill=rgba)
+        draw.rectangle((int(side * 0.57), margin, int(side * 0.66), int(side * 0.34)), fill=rgba)
+        draw.line((center, int(side * 0.72), center, side - margin), fill=rgba, width=stroke)
 
     resampling = getattr(Image, "Resampling", Image).LANCZOS
     image = image.resize((size, size), resampling)
@@ -148,5 +143,11 @@ async def upload_demo_assets(client: AsyncBusyBar) -> None:
             await client.assets_upload(
                 application_name=APPLICATION_NAME,
                 filename=asset_path(kind, size),
-                data=_scaled_icon(kind, size, FRONT_ACCENT if size == 14 else "#FFFFFF"),
+                data=_scaled_icon(kind, size, "#FFFFFF"),
+            )
+        for variant, color in (("active", FRONT_ACCENT), ("inactive", "#A8B2C3")):
+            await client.assets_upload(
+                application_name=APPLICATION_NAME,
+                filename=asset_path(kind, 14, variant),
+                data=_scaled_icon(kind, 14, color),
             )

@@ -22,6 +22,7 @@ class ImageSlot:
     y: int = 0
     kind: str | None = None
     size: int = 16
+    variant: str | None = None
 
 
 @dataclass(frozen=True)
@@ -50,7 +51,7 @@ def _payload(
     ):
         padded = slots + [ImageSlot()] * (count - len(slots))
         for index, slot in enumerate(padded[:count]):
-            path = asset_path(slot.kind, slot.size) if slot.kind else "demo_blank.png"
+            path = asset_path(slot.kind, slot.size, slot.variant) if slot.kind else "demo_blank.png"
             elements.append(
                 types.ImageElement(
                     id=f"{prefix}{index}", display=display, x=slot.x, y=slot.y, path=path
@@ -104,17 +105,15 @@ def _accessories_screen(demo: HomeFlowDemo) -> types.DisplayElements:
         selected = index == demo.selected
         front_images.append(
             ImageSlot(
-                index * 18 + (0 if selected else 2),
-                0 if selected else 2,
+                index * 18 + 2,
+                1,
                 device.kind,
-                14 if selected else 10,
+                14,
+                "active" if selected else "inactive",
             )
         )
-        if selected:
-            front_text.append(TextSlot(index * 18 + 5, 10, "^", "tiny", ACCENT))
     images = [
-        ImageSlot(3, 11 + index * 15, device.kind, 14)
-        for index, device in enumerate(demo.devices)
+        ImageSlot(3, 11 + index * 15, device.kind, 14) for index, device in enumerate(demo.devices)
     ]
     text = [
         TextSlot(
@@ -167,27 +166,44 @@ def _property_value(demo: HomeFlowDemo, name: str) -> str:
 def _controls_screen(demo: HomeFlowDemo) -> types.DisplayElements:
     device = demo.device
     editing = demo.view == DemoView.EDIT
-    labels = ("DIM", "RGB", "TEMP")
-    front_images = [ImageSlot(0, 0, device.kind, 16)]
-    label_positions = (18, 35, 52)
+    labels = ("BRIGHT", "COLOR", "TEMP")
+    front_images = [
+        ImageSlot(
+            1,
+            1,
+            device.kind,
+            14,
+            "active" if device.on else "inactive",
+        )
+    ]
     front_text = [
         TextSlot(
-            label_positions[index],
+            18,
             0,
-            label,
+            labels[demo.property_index],
             "tiny",
-            ACCENT if index == demo.property_index else DIM,
+            ACCENT,
         )
-        for index, label in enumerate(labels)
     ]
-    front_text.append(
-        TextSlot(
-            19,
-            8,
-            _property_value(demo, demo.property_name),
-            "small",
-            ACCENT if editing else WHITE,
-        )
+    front_text.extend(
+        [
+            TextSlot(
+                18,
+                8,
+                _property_value(demo, demo.property_name),
+                "small",
+                ACCENT if editing else WHITE,
+            ),
+            TextSlot(
+                70,
+                0,
+                f"{demo.property_index + 1}/{len(demo.properties)}",
+                "tiny",
+                DIM,
+                "top_right",
+            ),
+            TextSlot(70, 8, "EDIT" if editing else "", "tiny", ACCENT, "top_right"),
+        ]
     )
     if demo.view == DemoView.PROPERTIES:
         # A compact property picker: the three controls remain visible while
@@ -238,7 +254,9 @@ def _controls_screen(demo: HomeFlowDemo) -> types.DisplayElements:
                 55,
                 _level_bar(device.brightness)
                 if property_name == "brightness"
-                else device.color_label if property_name == "color" else "COOL <-----> WARM",
+                else device.color_label
+                if property_name == "color"
+                else "COOL <-----> WARM",
                 "tiny",
                 WHITE,
             ),

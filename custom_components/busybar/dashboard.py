@@ -72,8 +72,7 @@ def button_transition(
             return NavigationState.INACTIVE, False
     elif (
         button == "start"
-        and navigation
-        in (NavigationState.BROWSE, NavigationState.CONTROL, NavigationState.EDIT)
+        and navigation in (NavigationState.BROWSE, NavigationState.CONTROL, NavigationState.EDIT)
         and has_accessory
     ):
         return navigation, True
@@ -123,9 +122,7 @@ def parse_input_updates(message: dict[str, Any]) -> list[tuple[str, Any]]:
     return events
 
 
-def icon_asset_path(
-    display: types.DisplayName, domain: str, variant: str | None = None
-) -> str:
+def icon_asset_path(display: types.DisplayName, domain: str, variant: str | None = None) -> str:
     """Return the uploaded icon filename, falling back to a generic device."""
     safe_domain = domain if domain.replace("_", "").isalnum() else "device"
     suffix = f"_{variant}" if variant else ""
@@ -163,8 +160,8 @@ def build_dashboard_payload(
             types.ImageElement(
                 id=f"front_image_{index}",
                 display=types.DisplayName.FRONT,
-                x=index * 18 + (0 if index == browse_selected else 2),
-                y=0 if index == browse_selected else 2,
+                x=index * 18 + 2,
+                y=1,
                 path=(
                     icon_asset_path(
                         types.DisplayName.FRONT,
@@ -259,26 +256,39 @@ def build_dashboard_payload(
 
     if navigation in (NavigationState.CONTROL, NavigationState.EDIT):
         selected_control = selected_control or (controls[0] if controls else None)
-        control_labels = {
+        back_labels = {
             ControlKind.BRIGHTNESS: "DIM",
             ControlKind.COLOR: "RGB",
             ControlKind.TEMPERATURE: "TEMP",
             ControlKind.LEVEL: "LEVEL",
         }
-        front_labels = (
-            [control_labels[control] for control in controls[:3]]
-            if controls
-            else ["POWER"]
+        front_labels = {
+            ControlKind.BRIGHTNESS: "BRIGHT",
+            ControlKind.COLOR: "COLOR",
+            ControlKind.TEMPERATURE: "TEMP",
+            ControlKind.LEVEL: "LEVEL",
+        }
+        selected_index = controls.index(selected_control) if selected_control in controls else 0
+        selected_label = front_labels[selected_control] if selected_control else "POWER"
+        control_position = f"{selected_index + 1}/{len(controls)}" if len(controls) > 1 else ""
+        active_state = state_label.lower() not in (
+            "off",
+            "closed",
+            "locked",
+            "unavailable",
+            "unknown",
         )
-        front_labels.extend([""] * (3 - len(front_labels)))
-        label_positions = (18, 35, 52)
         front_elements: list[types.DisplayElement] = [
             types.ImageElement(
                 id="front_image_0",
                 display=types.DisplayName.FRONT,
-                x=0,
-                y=0,
-                path=icon_asset_path(types.DisplayName.FRONT, domain, "control"),
+                x=1,
+                y=1,
+                path=icon_asset_path(
+                    types.DisplayName.FRONT,
+                    domain,
+                    "active" if active_state else "inactive",
+                ),
             ),
             *[
                 types.ImageElement(
@@ -290,37 +300,43 @@ def build_dashboard_payload(
                 )
                 for index in range(1, 4)
             ],
-            *[
-                types.TextElement(
-                    id=f"front_text_{index}",
-                    display=types.DisplayName.FRONT,
-                    x=label_positions[index],
-                    y=0,
-                    text=text,
-                    font="tiny",
-                    color=(
-                        accent_color
-                        if index < len(controls)
-                        and controls[index] == selected_control
-                        else accent_color
-                        if not controls and index == 0
-                        else "#A0A0A0FF"
-                    ),
-                )
-                for index, text in enumerate(front_labels)
-            ],
             types.TextElement(
-                id="front_text_3",
+                id="front_text_0",
                 display=types.DisplayName.FRONT,
-                x=19,
+                x=18,
+                y=0,
+                text=selected_label,
+                font="tiny",
+                color=accent_color,
+            ),
+            types.TextElement(
+                id="front_text_1",
+                display=types.DisplayName.FRONT,
+                x=18,
                 y=8,
                 text=control_value,
                 font="small",
-                color=(
-                    accent_color
-                    if navigation == NavigationState.EDIT
-                    else "#FFFFFFFF"
-                ),
+                color=accent_color if navigation == NavigationState.EDIT else "#FFFFFFFF",
+            ),
+            types.TextElement(
+                id="front_text_2",
+                display=types.DisplayName.FRONT,
+                x=70,
+                y=0,
+                align="top_right",
+                text=control_position,
+                font="tiny",
+                color="#A8B2C3FF",
+            ),
+            types.TextElement(
+                id="front_text_3",
+                display=types.DisplayName.FRONT,
+                x=70,
+                y=8,
+                align="top_right",
+                text="EDIT" if navigation == NavigationState.EDIT else "",
+                font="tiny",
+                color=accent_color,
             ),
         ]
         return types.DisplayElements(
@@ -363,7 +379,7 @@ def build_dashboard_payload(
                     x=58,
                     y=47,
                     text=(
-                        f"{control_labels[selected_control]}  ·  {control_value}"
+                        f"{back_labels[selected_control]}  ·  {control_value}"
                         if selected_control
                         else f"POWER  ·  {control_value}"
                     ),

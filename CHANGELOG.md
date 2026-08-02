@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1
+
+- Replace the oversized, crowded device screen with a focused control label,
+  live value, position indicator, and explicit edit state.
+- Use equal-size outline icons in the accessory grid so selection is conveyed
+  by color instead of disruptive icon scaling.
+- Redraw light and fan assets so their device types remain recognizable on the
+  14-pixel front display.
+
 ## 0.2.0
 
 - Replace the separate accessory and adjustment screens with a two-screen

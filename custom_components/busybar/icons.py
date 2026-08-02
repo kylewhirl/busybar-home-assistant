@@ -40,26 +40,55 @@ def icon_png(domain: str, size: int, color: str) -> bytes:
     kind = _ALIASES.get(domain, domain)
 
     if kind == "light":
-        draw.ellipse((pad * 2, pad, far - pad, far - pad * 2), outline=rgba, width=line)
+        bulb_bottom = round(canvas_size * 0.60)
+        draw.ellipse((pad, pad, far, bulb_bottom), outline=rgba, width=line)
         draw.line(
-            (center - 2 * scale, far - pad * 2, center - scale, far - pad),
+            (
+                center - 4 * scale,
+                bulb_bottom - scale,
+                center - 2 * scale,
+                round(canvas_size * 0.72),
+            ),
             fill=rgba,
             width=line,
         )
         draw.line(
-            (center + 2 * scale, far - pad * 2, center + scale, far - pad),
+            (
+                center + 4 * scale,
+                bulb_bottom - scale,
+                center + 2 * scale,
+                round(canvas_size * 0.72),
+            ),
             fill=rgba,
             width=line,
         )
         draw.line(
-            (center - 2 * scale, far - pad, center + 2 * scale, far - pad), fill=rgba, width=line
+            (
+                center - 3 * scale,
+                round(canvas_size * 0.74),
+                center + 3 * scale,
+                round(canvas_size * 0.74),
+            ),
+            fill=rgba,
+            width=line,
+        )
+        draw.line(
+            (
+                center - 3 * scale,
+                round(canvas_size * 0.84),
+                center + 3 * scale,
+                round(canvas_size * 0.84),
+            ),
+            fill=rgba,
+            width=line,
         )
     elif kind == "fan":
-        blade = canvas_size * 0.30
-        draw.ellipse((center - line, pad, center + line, pad + blade), fill=rgba)
-        draw.ellipse((far - blade, center - line, far, center + line), fill=rgba)
-        draw.ellipse((center - line, far - blade, center + line, far), fill=rgba)
-        draw.ellipse((pad, center - line, pad + blade, center + line), fill=rgba)
+        blade = canvas_size * 0.24
+        draw.ellipse((pad, pad, far, far), outline=rgba, width=line)
+        draw.ellipse((center - line, pad + line, center + line, pad + line + blade), fill=rgba)
+        draw.ellipse((far - line - blade, center - line, far - line, center + line), fill=rgba)
+        draw.ellipse((center - line, far - line - blade, center + line, far - line), fill=rgba)
+        draw.ellipse((pad + line, center - line, pad + line + blade, center + line), fill=rgba)
         draw.ellipse((center - line, center - line, center + line, center + line), fill=rgba)
     elif kind == "cover":
         draw.rounded_rectangle((pad, pad, far, far), radius=line, outline=rgba, width=line)
@@ -164,8 +193,8 @@ async def async_upload_icons(client: AsyncBusyBar, domains: set[str], accent_col
     for domain in sorted(domains | {"device"}):
         for display, variant, size, color in (
             (types.DisplayName.FRONT, "active", 14, accent_color),
-            (types.DisplayName.FRONT, "inactive", 10, "#FFFFFF"),
-            (types.DisplayName.FRONT, "control", 16, "#FFFFFF"),
+            (types.DisplayName.FRONT, "inactive", 14, "#A8B2C3"),
+            (types.DisplayName.FRONT, "control", 14, "#FFFFFF"),
             (types.DisplayName.BACK, None, 40, "#FFFFFF"),
         ):
             await client.assets_upload(

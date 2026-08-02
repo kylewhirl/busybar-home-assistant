@@ -18,7 +18,7 @@ def test_select_opens_controls_directly_from_the_accessory_overview() -> None:
     assert demo.view == DemoView.PROPERTIES
 
 
-def test_combined_control_screen_keeps_the_device_icon_and_all_controls_visible() -> None:
+def test_combined_control_screen_focuses_the_selected_control_and_value() -> None:
     demo = HomeFlowDemo()
     demo.handle("button", "ok")
 
@@ -38,8 +38,10 @@ def test_combined_control_screen_keeps_the_device_icon_and_all_controls_visible(
         and element.text
     }
 
-    assert front_images[0].path.endswith("_16.png")
-    assert {"DIM", "RGB", "TEMP"}.issubset(front_text)
+    assert front_images[0].path.endswith("_14_active.png")
+    assert {"BRIGHT", "80%", "1/3"}.issubset(front_text)
+    assert "RGB" not in front_text
+    assert "TEMP" not in front_text
 
 
 def test_dial_selects_an_accessory_then_a_control() -> None:
