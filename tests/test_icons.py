@@ -13,7 +13,6 @@ from custom_components.busybar.icons import (
     async_icon_name_for_state,
     async_upload_icons,
     default_icon_name,
-    icon_asset_name,
     icon_png,
     normalize_icon_name,
 )
@@ -59,7 +58,6 @@ def test_only_supported_mdi_names_are_used_as_assets() -> None:
     assert normalize_icon_name("mdi:floor-lamp") == "mdi:floor-lamp"
     assert normalize_icon_name("custom:lamp") == "mdi:help-circle"
     assert normalize_icon_name("mdi:not-a-real-icon") == "mdi:help-circle"
-    assert icon_asset_name("mdi:floor-lamp") == "mdi_floor-lamp"
 
 
 @pytest.mark.asyncio
@@ -104,21 +102,14 @@ async def test_uploads_front_and_back_assets_for_actual_mdi_icons() -> None:
     filenames = {
         call.kwargs["filename"] for call in client.assets_upload.await_args_list
     }
-    assert filenames == {
-        "ha_blank.png",
-        "ha_back_mdi_help-circle.png",
-        "ha_front_active_mdi_help-circle.png",
-        "ha_front_inactive_mdi_help-circle.png",
-        "ha_front_control_mdi_help-circle.png",
-        "ha_back_mdi_desk-lamp.png",
-        "ha_front_active_mdi_desk-lamp.png",
-        "ha_front_inactive_mdi_desk-lamp.png",
-        "ha_front_control_mdi_desk-lamp.png",
-        "ha_back_mdi_lightbulb.png",
-        "ha_front_active_mdi_lightbulb.png",
-        "ha_front_inactive_mdi_lightbulb.png",
-        "ha_front_control_mdi_lightbulb.png",
-    }
+    assert "ha_blank.png" in filenames
+    assert len(filenames) == 13
+    assert all(len(filename) <= 22 for filename in filenames)
+    assert all(
+        character.isalnum() or character in "_."
+        for filename in filenames
+        for character in filename
+    )
     assert all(
         call.kwargs["application_name"] == "home_assistant"
         for call in client.assets_upload.await_args_list

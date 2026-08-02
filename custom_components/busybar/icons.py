@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import io
-import re
 from typing import Any
 
 import resvg_py
@@ -35,9 +34,6 @@ _DEFAULT_MDI_ICONS = {
     "switch": "mdi:toggle-switch",
 }
 
-_SAFE_ASSET = re.compile(r"[^a-z0-9_-]+")
-
-
 def default_icon_name(domain: str) -> str:
     """Return a stable MDI fallback for a supported Home Assistant domain."""
     return _DEFAULT_MDI_ICONS.get(domain, "mdi:help-circle")
@@ -49,12 +45,6 @@ def normalize_icon_name(icon_name: str) -> str:
     if candidate.startswith("mdi:") and get_icon(candidate.removeprefix("mdi:")):
         return candidate
     return "mdi:help-circle"
-
-
-def icon_asset_name(icon_name: str) -> str:
-    """Turn an icon identifier into a BUSY-safe asset name component."""
-    normalized = normalize_icon_name(icon_name).replace(":", "_")
-    return _SAFE_ASSET.sub("_", normalized).strip("_")
 
 
 def _icon_from_spec(spec: Any) -> str | None:
@@ -154,6 +144,6 @@ async def async_upload_icons(
         for (display, variant, _, _), data in zip(variants, rendered, strict=True):
             await client.assets_upload(
                 application_name=APPLICATION_NAME,
-                filename=icon_asset_path(display, icon_asset_name(icon_name), variant),
+                filename=icon_asset_path(display, icon_name, variant),
                 data=data,
             )

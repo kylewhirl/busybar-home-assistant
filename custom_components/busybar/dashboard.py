@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from enum import StrEnum
 from typing import Any
 
@@ -125,13 +126,14 @@ def parse_input_updates(message: dict[str, Any]) -> list[tuple[str, Any]]:
 def icon_asset_path(
     display: types.DisplayName, icon_name: str, variant: str | None = None
 ) -> str:
-    """Return the uploaded icon filename, falling back to a generic device."""
-    safe_icon = "".join(
-        character if character.isalnum() or character in "_-" else "_"
-        for character in icon_name.lower()
-    ).strip("_")
-    suffix = f"_{variant}" if variant else ""
-    return f"ha_{display.value}{suffix}_{safe_icon or 'mdi_help-circle'}.png"
+    """Return a short, firmware-safe filename for an uploaded icon."""
+    token = hashlib.blake2s(icon_name.lower().encode(), digest_size=5).hexdigest()
+    if display == types.DisplayName.BACK:
+        return f"ha_b_{token}.png"
+    variant_code = {"active": "a", "inactive": "i", "control": "c"}.get(
+        variant, "f"
+    )
+    return f"ha_f{variant_code}_{token}.png"
 
 
 def build_dashboard_payload(

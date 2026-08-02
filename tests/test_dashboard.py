@@ -11,6 +11,7 @@ from custom_components.busybar.dashboard import (
     build_dashboard_payload,
     button_transition,
     controls_for,
+    icon_asset_path,
     parse_input_updates,
     percent_to_brightness,
 )
@@ -156,7 +157,9 @@ def test_light_control_screen_focuses_one_value_without_cramming_tabs() -> None:
     )
     elements = {element.id: element for element in payload.elements}
 
-    assert elements["front_image_0"].path == "ha_front_active_light.png"
+    assert elements["front_image_0"].path == icon_asset_path(
+        types.DisplayName.FRONT, "light", "active"
+    )
     assert (elements["front_image_0"].x, elements["front_image_0"].y) == (1, 1)
     assert elements["front_text_0"].text == "BRIGHT"
     assert elements["front_text_1"].text == "72%"
@@ -179,10 +182,18 @@ def test_browse_screen_shows_four_accessories_and_highlights_one() -> None:
     )
     elements = {element.id: element for element in payload.elements}
 
-    assert elements["front_image_0"].path == "ha_front_inactive_light.png"
-    assert elements["front_image_1"].path == "ha_front_active_fan.png"
-    assert elements["front_image_2"].path == "ha_front_inactive_light.png"
-    assert elements["front_image_3"].path == "ha_front_inactive_switch.png"
+    assert elements["front_image_0"].path == icon_asset_path(
+        types.DisplayName.FRONT, "light", "inactive"
+    )
+    assert elements["front_image_1"].path == icon_asset_path(
+        types.DisplayName.FRONT, "fan", "active"
+    )
+    assert elements["front_image_2"].path == icon_asset_path(
+        types.DisplayName.FRONT, "light", "inactive"
+    )
+    assert elements["front_image_3"].path == icon_asset_path(
+        types.DisplayName.FRONT, "switch", "inactive"
+    )
     assert [
         (elements[f"front_image_{index}"].x, elements[f"front_image_{index}"].y)
         for index in range(4)
@@ -214,10 +225,18 @@ def test_dashboard_uses_home_assistant_icons_without_changing_entity_domain() ->
     )
     elements = {element.id: element for element in payload.elements}
 
-    assert elements["front_image_0"].path == "ha_front_active_mdi_desk-lamp.png"
-    assert elements["front_image_1"].path == "ha_front_inactive_mdi_floor-lamp.png"
-    assert elements["front_image_2"].path == "ha_front_inactive_mdi_fan.png"
-    assert elements["front_image_3"].path == "ha_front_inactive_mdi_power-plug.png"
+    assert elements["front_image_0"].path == icon_asset_path(
+        types.DisplayName.FRONT, "mdi:desk-lamp", "active"
+    )
+    assert elements["front_image_1"].path == icon_asset_path(
+        types.DisplayName.FRONT, "mdi:floor-lamp", "inactive"
+    )
+    assert elements["front_image_2"].path == icon_asset_path(
+        types.DisplayName.FRONT, "mdi:fan", "inactive"
+    )
+    assert elements["front_image_3"].path == icon_asset_path(
+        types.DisplayName.FRONT, "mdi:power-plug", "inactive"
+    )
     assert elements["back_state"].text.startswith("LIGHT")
 
 
@@ -234,7 +253,9 @@ def test_nonadjustable_accessory_still_gets_combined_power_screen() -> None:
     )
     elements = {element.id: element for element in payload.elements}
 
-    assert elements["front_image_0"].path == "ha_front_inactive_switch.png"
+    assert elements["front_image_0"].path == icon_asset_path(
+        types.DisplayName.FRONT, "switch", "inactive"
+    )
     assert elements["front_text_0"].text == "POWER"
     assert elements["front_text_1"].text == "OFF"
     assert elements["front_text_2"].text == ""

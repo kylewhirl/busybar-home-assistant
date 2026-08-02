@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.4
+
+- Use short fixed-length icon asset filenames accepted by physical BUSY Bar
+  firmware while retaining the full MDI identifier internally.
+
 ## 0.2.3
 
 - Use the self-contained resvg renderer for MDI assets so Home Assistant OS
