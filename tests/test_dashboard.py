@@ -194,6 +194,33 @@ def test_browse_screen_shows_four_accessories_and_highlights_one() -> None:
     ]
 
 
+def test_dashboard_uses_home_assistant_icons_without_changing_entity_domain() -> None:
+    payload = build_dashboard_payload(
+        domain="light",
+        name="Desk Lamp",
+        state_label="on",
+        navigation=NavigationState.BROWSE,
+        accent_color="#63E6BE",
+        priority=100,
+        position=(1, 4),
+        browse_icon_names=(
+            "mdi:desk-lamp",
+            "mdi:floor-lamp",
+            "mdi:fan",
+            "mdi:power-plug",
+        ),
+        browse_selected=0,
+        icon_name="mdi:desk-lamp",
+    )
+    elements = {element.id: element for element in payload.elements}
+
+    assert elements["front_image_0"].path == "ha_front_active_mdi_desk-lamp.png"
+    assert elements["front_image_1"].path == "ha_front_inactive_mdi_floor-lamp.png"
+    assert elements["front_image_2"].path == "ha_front_inactive_mdi_fan.png"
+    assert elements["front_image_3"].path == "ha_front_inactive_mdi_power-plug.png"
+    assert elements["back_state"].text.startswith("LIGHT")
+
+
 def test_nonadjustable_accessory_still_gets_combined_power_screen() -> None:
     payload = build_dashboard_payload(
         domain="switch",

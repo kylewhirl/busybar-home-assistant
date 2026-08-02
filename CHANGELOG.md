@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.2
+
+- Replace hand-drawn and inferred fixture symbols with each entity's actual
+  Home Assistant Material Design Icon, rasterized for the BUSY matrix.
+- Honor entity-registry icon overrides, integration icon translations, and
+  Home Assistant's domain or device-class defaults.
+- Preserve the clear selected-yellow and inactive-blue grid treatment while
+  allowing bulb, desk-lamp, floor-lamp, ceiling-light, and other MDI shapes to
+  remain visually distinct.
+
 ## 0.2.1
 
 - Replace the oversized, crowded device screen with a focused control label,

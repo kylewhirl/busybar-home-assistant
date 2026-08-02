@@ -99,6 +99,26 @@ status screen does not immediately reclaim the display. To remove an accessory,
 reopen Configure, remove it from the
 Accessories field, and submit again.
 
+## Device icons
+
+The bar uses each entity's real Home Assistant Material Design Icon instead of
+guessing a fixture from its name. A custom icon selected in the entity registry
+takes priority, followed by the entity's integration-provided icon and Home
+Assistant's normal domain or device-class default.
+
+To give two lights different silhouettes, customize them in Home Assistant:
+
+1. Open **Settings → Devices & services → Entities**.
+2. Open the entity and choose its **Settings** cog.
+3. Set **Icon** to an MDI icon such as `mdi:desk-lamp`, `mdi:floor-lamp`, or
+   `mdi:ceiling-light` and save.
+4. Reload the BUSY Bar integration, or reopen **Configure** and submit the
+   existing accessory list, so the new image is uploaded to the bar.
+
+If no custom icon is set, a light correctly uses Home Assistant's default
+`mdi:lightbulb`. Unsupported third-party icon sets fall back to a question-mark
+icon because their SVG artwork is not part of Home Assistant's MDI library.
+
 ## Home Assistant entities
 
 The integration creates:
@@ -140,9 +160,10 @@ If more than one bar is configured, pass `config_entry_id` to target one.
   same dial or button event.
 - Display elements use the integration-owned `home_assistant` application
   namespace so exiting or unloading does not delete another app's assets.
-- Device-type icons are generated in memory during setup and uploaded into the
-  integration's own BUSY asset namespace; there are no external icon files to
-  install or keep in sync.
+- Entity MDI artwork is resolved from Home Assistant, rasterized in memory, and
+  uploaded into the integration's own BUSY asset namespace. Selected lights use
+  warm yellow while unselected accessories use muted blue, but their actual
+  Home Assistant silhouettes are preserved.
 
 ## Development
 

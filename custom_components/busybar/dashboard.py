@@ -122,11 +122,16 @@ def parse_input_updates(message: dict[str, Any]) -> list[tuple[str, Any]]:
     return events
 
 
-def icon_asset_path(display: types.DisplayName, domain: str, variant: str | None = None) -> str:
+def icon_asset_path(
+    display: types.DisplayName, icon_name: str, variant: str | None = None
+) -> str:
     """Return the uploaded icon filename, falling back to a generic device."""
-    safe_domain = domain if domain.replace("_", "").isalnum() else "device"
+    safe_icon = "".join(
+        character if character.isalnum() or character in "_-" else "_"
+        for character in icon_name.lower()
+    ).strip("_")
     suffix = f"_{variant}" if variant else ""
-    return f"ha_{display.value}{suffix}_{safe_domain}.png"
+    return f"ha_{display.value}{suffix}_{safe_icon or 'mdi_help-circle'}.png"
 
 
 def build_dashboard_payload(
@@ -144,6 +149,8 @@ def build_dashboard_payload(
     control_value: str = "",
     browse_domains: tuple[str, ...] = (),
     browse_selected: int = 0,
+    icon_name: str | None = None,
+    browse_icon_names: tuple[str, ...] = (),
 ) -> types.DisplayElements:
     """Build a single draw payload spanning the front and back displays."""
     current, total = position
@@ -152,9 +159,11 @@ def build_dashboard_payload(
     )
     label = "BROWSE" if navigation == NavigationState.BROWSE else "CONTROL"
     level_suffix = f"  ·  {level}%" if level is not None else ""
+    display_icon = icon_name or domain
 
-    if navigation == NavigationState.BROWSE and browse_domains:
-        domains = [*browse_domains[:4]]
+    browse_icons = browse_icon_names or browse_domains
+    if navigation == NavigationState.BROWSE and browse_icons:
+        domains = [*browse_icons[:4]]
         domains.extend([""] * (4 - len(domains)))
         front_images = [
             types.ImageElement(
@@ -196,7 +205,7 @@ def build_dashboard_payload(
                     display=types.DisplayName.BACK,
                     x=8,
                     y=15,
-                    path=icon_asset_path(types.DisplayName.BACK, domain),
+                    path=icon_asset_path(types.DisplayName.BACK, display_icon),
                 ),
                 types.TextElement(
                     id="back_kicker",
@@ -286,7 +295,7 @@ def build_dashboard_payload(
                 y=1,
                 path=icon_asset_path(
                     types.DisplayName.FRONT,
-                    domain,
+                    display_icon,
                     "active" if active_state else "inactive",
                 ),
             ),
@@ -349,7 +358,7 @@ def build_dashboard_payload(
                     display=types.DisplayName.BACK,
                     x=8,
                     y=15,
-                    path=icon_asset_path(types.DisplayName.BACK, domain),
+                    path=icon_asset_path(types.DisplayName.BACK, display_icon),
                 ),
                 types.TextElement(
                     id="back_kicker",
@@ -418,14 +427,14 @@ def build_dashboard_payload(
             display=types.DisplayName.FRONT,
             x=1,
             y=2,
-            path=icon_asset_path(types.DisplayName.FRONT, domain),
+            path=icon_asset_path(types.DisplayName.FRONT, display_icon),
         ),
         types.ImageElement(
             id="back_icon",
             display=types.DisplayName.BACK,
             x=8,
             y=15,
-            path=icon_asset_path(types.DisplayName.BACK, domain),
+            path=icon_asset_path(types.DisplayName.BACK, display_icon),
         ),
         types.TextElement(
             id="front_name",

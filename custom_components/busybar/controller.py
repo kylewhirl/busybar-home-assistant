@@ -38,7 +38,7 @@ from .dashboard import (
     parse_input_updates,
     percent_to_brightness,
 )
-from .icons import async_upload_icons
+from .icons import async_icon_name_for_state, async_upload_icons, default_icon_name
 from .models import BusyBarConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
@@ -145,6 +145,7 @@ class BusyBarController:
         self._optimistic_controls: dict[
             tuple[str, ControlKind], tuple[int, float]
         ] = {}
+        self._entity_icons: dict[str, str] = {}
 
     @property
     def entities(self) -> list[str]:
@@ -203,11 +204,19 @@ class BusyBarController:
 
     async def async_start(self) -> None:
         """Start the WebSocket input stream and entity listener."""
-        domains = {entity_id.split(".", 1)[0] for entity_id in self.entities}
+        icon_names: set[str] = set()
+        for entity_id in self.entities:
+            state = self.hass.states.get(entity_id)
+            if state:
+                icon_name = await async_icon_name_for_state(self.hass, state)
+            else:
+                icon_name = default_icon_name(entity_id.split(".", 1)[0])
+            self._entity_icons[entity_id] = icon_name
+            icon_names.add(icon_name)
         try:
             await async_upload_icons(
                 self.client,
-                domains,
+                icon_names,
                 _color_to_hex(self.entry.options.get(CONF_ACCENT_COLOR, DEFAULT_ACCENT_COLOR)),
             )
         except exceptions.BusyBarError as err:
@@ -411,10 +420,18 @@ class BusyBarController:
             return (), 0
         page_start = (self.selected_index // 4) * 4
         entity_ids = self.entities[page_start : page_start + 4]
-        return (
-            tuple(entity_id.split(".", 1)[0] for entity_id in entity_ids),
-            self.selected_index - page_start,
-        )
+        icon_names = []
+        for entity_id in entity_ids:
+            state = self.hass.states.get(entity_id)
+            icon_names.append(
+                self._entity_icons.get(
+                    entity_id,
+                    default_icon_name(
+                        state.domain if state else entity_id.split(".", 1)[0]
+                    ),
+                )
+            )
+        return tuple(icon_names), self.selected_index - page_start
 
     @callback
     def _async_state_changed(self, event: Event) -> None:
@@ -486,7 +503,10 @@ class BusyBarController:
 
         controls = self.selected_controls
         selected_control = self.selected_control
-        browse_domains, browse_selected = self._browse_window()
+        browse_icon_names, browse_selected = self._browse_window()
+        icon_name = self._entity_icons.get(
+            state.entity_id, default_icon_name(state.domain)
+        )
 
         payload = build_dashboard_payload(
             domain=state.domain,
@@ -502,8 +522,9 @@ class BusyBarController:
             controls=controls,
             selected_control=selected_control,
             control_value=self._control_value(state, selected_control),
-            browse_domains=browse_domains,
+            browse_icon_names=browse_icon_names,
             browse_selected=browse_selected,
+            icon_name=icon_name,
         )
         await self._async_draw(payload)
 

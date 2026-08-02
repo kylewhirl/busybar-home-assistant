@@ -401,7 +401,7 @@ async def test_render_uses_combined_light_control_screen_after_one_select() -> N
 
     payload = controller.client.display_draw.await_args.args[0]
     elements = {element.id: element for element in payload.elements}
-    assert elements["front_image_0"].path == "ha_front_active_light.png"
+    assert elements["front_image_0"].path == "ha_front_active_mdi_lightbulb.png"
     assert elements["front_text_0"].text == "COLOR"
     assert elements["front_text_1"].text == "BLUE"
     assert elements["front_text_2"].text == "2/3"

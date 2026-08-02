@@ -14,7 +14,11 @@ def test_manifest_is_hacs_ready() -> None:
     assert manifest["config_flow"] is True
     assert manifest["iot_class"] == "local_push"
     assert manifest["version"]
-    assert manifest["requirements"] == ["busylib==1.0.0"]
+    assert manifest["requirements"] == [
+        "CairoSVG==2.9.0",
+        "busylib==1.0.0",
+        "material-design-icons-pack==7.4.47",
+    ]
 
 
 def test_local_brand_icons_have_transparent_background() -> None:
